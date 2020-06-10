@@ -1,0 +1,693 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>TapasPlayer &mdash; TAPAS 1.0 documentation</title>
+    
+    <link rel="stylesheet" href="../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '1.0',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    <link rel="top" title="TAPAS 1.0 documentation" href="../index.html" />
+    <link rel="up" title="Module code" href="index.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li><a href="../index.html">TAPAS 1.0 documentation</a> &raquo;</li>
+          <li><a href="index.html" accesskey="U">Module code</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <h1>Source code for TapasPlayer</h1><div class="highlight"><pre>
+<span class="c">#!/usr/bin/env python</span>
+<span class="c"># -*- Mode: Python -*-</span>
+<span class="c"># -*- encoding: utf-8 -*-</span>
+<span class="c"># Copyright (c) Vito Caldaralo &lt;vito.caldaralo@gmail.com&gt;</span>
+
+<span class="c"># This file may be distributed and/or modified under the terms of</span>
+<span class="c"># the GNU General Public License version 2 as published by</span>
+<span class="c"># the Free Software Foundation.</span>
+<span class="c"># This file is distributed without any warranty; without even the implied</span>
+<span class="c"># warranty of merchantability or fitness for a particular purpose.</span>
+<span class="c"># See &quot;LICENSE&quot; in the source distribution for more information.</span>
+<span class="kn">import</span> <span class="nn">os</span><span class="o">,</span> <span class="nn">sys</span><span class="o">,</span> <span class="nn">inspect</span>
+<span class="kn">from</span> <span class="nn">twisted.internet</span> <span class="kn">import</span> <span class="n">defer</span><span class="p">,</span> <span class="n">reactor</span>
+<span class="kn">import</span> <span class="nn">time</span><span class="o">,</span> <span class="nn">datetime</span>
+<span class="kn">from</span> <span class="nn">pprint</span> <span class="kn">import</span> <span class="n">pformat</span>
+<span class="kn">from</span> <span class="nn">utils_py.util</span> <span class="kn">import</span> <span class="n">debug</span><span class="p">,</span> <span class="n">format_bytes</span><span class="p">,</span> <span class="n">Logger</span><span class="p">,</span> <span class="n">getPage</span><span class="p">,</span> <span class="n">send_json</span><span class="p">,</span> <span class="n">makeJsonUrl</span><span class="p">,</span> <span class="n">RateCalc</span><span class="p">,</span> <span class="n">ProcessStats</span>
+<span class="kn">from</span> <span class="nn">utils_py.connection</span> <span class="kn">import</span> <span class="n">parse_url</span><span class="p">,</span> <span class="n">ClientFactory</span>
+
+<span class="n">DEBUG</span> <span class="o">=</span> <span class="mi">2</span>
+<span class="n">USER_AGENT</span> <span class="o">=</span> <span class="s">&#39;Mozilla/5.0 (iPad; PythonHlsPlayer 0.1) AppleWebKit/531.21.10 (KHTML, like Gecko) Version/4.0.4 Mobile/7B334b Safari/531.21.10&#39;</span>
+
+<div class="viewcode-block" id="TapasPlayer"><a class="viewcode-back" href="../tapasPlayer.html#TapasPlayer.TapasPlayer">[docs]</a><span class="k">class</span> <span class="nc">TapasPlayer</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">controller</span><span class="p">,</span> <span class="n">parser</span><span class="p">,</span> <span class="n">media_engine</span><span class="p">,</span> 
+        <span class="n">log_sub_dir</span><span class="o">=</span><span class="s">&#39;&#39;</span><span class="p">,</span> <span class="n">log_period</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span>
+        <span class="n">max_buffer_time</span><span class="o">=</span><span class="mi">60</span><span class="p">,</span>
+        <span class="n">inactive_cycle</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">initial_level</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+        <span class="n">use_persistent_connection</span><span class="o">=</span><span class="bp">True</span><span class="p">,</span>
+        <span class="n">check_warning_buffering</span><span class="o">=</span><span class="bp">True</span><span class="p">,</span>
+        <span class="n">stress_test</span><span class="o">=</span><span class="bp">False</span><span class="p">):</span>
+
+        <span class="c"># player components</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">controller</span> <span class="o">=</span> <span class="n">controller</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">parser</span> <span class="o">=</span> <span class="n">parser</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">media_engine</span> <span class="o">=</span> <span class="n">media_engine</span>
+        <span class="c"># log</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span> <span class="o">=</span> <span class="bp">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log_file</span> <span class="o">=</span> <span class="bp">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log_dir</span><span class="o">=</span><span class="s">&#39;logs&#39;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log_sub_dir</span><span class="o">=</span><span class="n">log_sub_dir</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log_period</span> <span class="o">=</span> <span class="n">log_period</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">log_prefix</span><span class="o">=</span><span class="s">&#39;&#39;</span> 
+        <span class="bp">self</span><span class="o">.</span><span class="n">log_comment</span><span class="o">=</span><span class="s">&#39;&#39;</span> 
+        <span class="c">#</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">max_buffer_time</span> <span class="o">=</span> <span class="n">max_buffer_time</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">inactive_cycle</span> <span class="o">=</span> <span class="n">inactive_cycle</span> <span class="c">#active control action after inactive_cycle+1 segments</span>
+        <span class="c">#</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">use_persistent_connection</span> <span class="o">=</span> <span class="n">use_persistent_connection</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">connection</span> <span class="o">=</span> <span class="bp">None</span>
+        <span class="c">#</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">cur_level</span> <span class="o">=</span> <span class="n">initial_level</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">cur_index</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">enable_stress_test</span> <span class="o">=</span> <span class="n">stress_test</span> <span class="c">#flag to enable stress test, switch level every segment cyclically </span>
+        <span class="c">#</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">check_warning_buffering</span> <span class="o">=</span> <span class="n">check_warning_buffering</span> <span class="c">#flag to enable check for warning buffering</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">rate_calc</span> <span class="o">=</span> <span class="n">RateCalc</span><span class="p">(</span><span class="n">period</span><span class="o">=</span><span class="mf">3.0</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.0</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">remaining_data</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="c">#</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">bwe</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">downloaded_bytes</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">downloaded_segments</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">last_fragment_size</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">start_segment_request</span> <span class="o">=</span> <span class="o">-</span><span class="mf">1.0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">stop_segment_request</span> <span class="o">=</span> <span class="o">-</span><span class="mf">1.0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">last_downloaded_time</span> <span class="o">=</span> <span class="o">-</span><span class="mf">1.0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">t_paused</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">paused_time</span> <span class="o">=</span> <span class="mf">0.0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">queuedBytes</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">queuedTime</span> <span class="o">=</span> <span class="mf">0.0</span>
+        <span class="c">#</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">proc_stats</span> <span class="o">=</span> <span class="n">ProcessStats</span><span class="p">()</span>
+
+        <span class="c">#Initialize the parameters passed at the controller after the download of every segment</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">feedback</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">queued_bytes</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+           <span class="n">queued_time</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span>
+           <span class="n">max_buffer_time</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">max_buffer_time</span><span class="p">,</span>
+           <span class="n">bwe</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span>
+           <span class="n">level</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">cur_level</span><span class="p">,</span>
+           <span class="n">max_level</span><span class="o">=-</span><span class="mi">1</span><span class="p">,</span>
+           <span class="n">cur_rate</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span>
+           <span class="n">max_rate</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span>
+           <span class="n">min_rate</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span>
+           <span class="n">player_status</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+           <span class="n">paused_time</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span>
+           <span class="n">last_fragment_size</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+           <span class="n">last_download_time</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span>
+           <span class="n">downloaded_bytes</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+           <span class="n">fragment_duration</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span>
+           <span class="n">rates</span><span class="o">=</span><span class="p">[]</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">controller</span><span class="o">.</span><span class="n">setPlayerFeedback</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">feedback</span><span class="p">)</span>
+        
+    <span class="k">def</span> <span class="nf">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="s">&#39;&lt;TapasPlayer-</span><span class="si">%d</span><span class="s">&gt;&#39;</span> <span class="o">%</span><span class="nb">id</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+
+<div class="viewcode-block" id="TapasPlayer.play"><a class="viewcode-back" href="../tapasPlayer.html#TapasPlayer.TapasPlayer.play">[docs]</a>    <span class="k">def</span> <span class="nf">play</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        Starts Parser, creates Logger, initializes MediaEngine, and fetches the first segment when the parser has finished</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">parser</span><span class="o">.</span><span class="n">loadPlaylist</span><span class="p">()</span>
+        <span class="k">def</span> <span class="nf">_on_done</span><span class="p">(</span><span class="n">res</span><span class="p">):</span> 
+            <span class="n">playlists</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parser</span><span class="o">.</span><span class="n">getPlaylists</span><span class="p">()</span>
+            <span class="n">levels</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parser</span><span class="o">.</span><span class="n">getLevels</span><span class="p">()</span>
+            <span class="n">fragment_duration</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parser</span><span class="o">.</span><span class="n">getFragmentDuration</span><span class="p">()</span>
+            <span class="n">caps</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parser</span><span class="o">.</span><span class="n">_getCapsDemuxer</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">controller</span><span class="o">.</span><span class="n">setIdleDuration</span><span class="p">(</span><span class="n">fragment_duration</span><span class="p">)</span>  <span class="c">#Default pause interval when isBuffering return False</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">getCurrentLevel</span><span class="p">()</span> <span class="o">&gt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">getMaxLevel</span><span class="p">()</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">getCurrentLevel</span><span class="p">()</span> <span class="o">==</span> <span class="o">-</span><span class="mi">1</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">setCurrentLevel</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">getMaxLevel</span><span class="p">())</span>
+            <span class="c">#opts for Logger</span>
+            <span class="n">opts</span> <span class="o">=</span> <span class="p">[</span>
+                <span class="p">(</span><span class="s">&#39;enqueued_b&#39;</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="s">&#39;&#39;</span><span class="p">),</span>                        <span class="c">#2</span>
+                <span class="p">(</span><span class="s">&#39;enqueued_t&#39;</span><span class="p">,</span> <span class="nb">float</span><span class="p">,</span> <span class="s">&#39;visible=1,subplot=2&#39;</span><span class="p">),</span>   <span class="c">#3</span>
+                <span class="p">(</span><span class="s">&#39;bwe&#39;</span><span class="p">,</span> <span class="nb">float</span><span class="p">,</span> <span class="s">&#39;visible=1,subplot=1&#39;</span><span class="p">),</span>          <span class="c">#4</span>
+                <span class="p">(</span><span class="s">&#39;cur&#39;</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="s">&#39;visible=1,subplot=1&#39;</span><span class="p">),</span>            <span class="c">#5</span>
+                <span class="p">(</span><span class="s">&#39;level&#39;</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="s">&#39;visible=1,subplot=3&#39;</span><span class="p">),</span>          <span class="c">#6</span>
+                <span class="p">(</span><span class="s">&#39;max_level&#39;</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="s">&#39;&#39;</span><span class="p">),</span>                         <span class="c">#7</span>
+                <span class="p">(</span><span class="s">&#39;player_status&#39;</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="s">&#39;visible=1,subplot=3&#39;</span><span class="p">),</span>  <span class="c">#8</span>
+                <span class="p">(</span><span class="s">&#39;paused_time&#39;</span><span class="p">,</span> <span class="nb">float</span><span class="p">,</span> <span class="s">&#39;&#39;</span><span class="p">),</span>                     <span class="c">#9</span>
+                <span class="p">(</span><span class="s">&#39;downloaded_bytes&#39;</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="s">&#39;&#39;</span><span class="p">),</span>                  <span class="c">#10</span>
+                <span class="p">(</span><span class="s">&#39;cpu&#39;</span><span class="p">,</span> <span class="nb">float</span><span class="p">,</span> <span class="s">&#39;visible=1,subplot=4&#39;</span><span class="p">),</span>          <span class="c">#11</span>
+                <span class="p">(</span><span class="s">&#39;mem&#39;</span><span class="p">,</span> <span class="nb">float</span><span class="p">,</span> <span class="s">&#39;visible=1,subplot=5&#39;</span><span class="p">),</span>          <span class="c">#12</span>
+                <span class="p">(</span><span class="s">&#39;rss&#39;</span><span class="p">,</span> <span class="nb">float</span><span class="p">,</span> <span class="s">&#39;&#39;</span><span class="p">),</span>                             <span class="c">#13</span>
+                <span class="p">(</span><span class="s">&#39;vms&#39;</span><span class="p">,</span> <span class="nb">float</span><span class="p">,</span> <span class="s">&#39;&#39;</span><span class="p">),</span>                             <span class="c">#14</span>
+                <span class="p">(</span><span class="s">&#39;ts_start_req&#39;</span><span class="p">,</span> <span class="nb">float</span><span class="p">,</span> <span class="s">&#39;&#39;</span><span class="p">),</span>                    <span class="c">#15</span>
+                <span class="p">(</span><span class="s">&#39;ts_stop_req&#39;</span><span class="p">,</span> <span class="nb">float</span><span class="p">,</span> <span class="s">&#39;&#39;</span><span class="p">),</span>                     <span class="c">#16</span>
+            <span class="p">]</span>
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="nb">len</span><span class="p">(</span><span class="n">levels</span><span class="p">)):</span>
+                <span class="n">opts</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="s">&#39;q</span><span class="si">%d</span><span class="s">&#39;</span> <span class="o">%</span><span class="n">i</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="s">&#39;visible=0&#39;</span><span class="p">))</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">log_sub_dir</span><span class="p">:</span>     
+                <span class="bp">self</span><span class="o">.</span><span class="n">log_dir</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">log_dir</span> <span class="o">+</span> <span class="s">&#39;/&#39;</span><span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">log_sub_dir</span>
+                <span class="c">#Create Logger</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span> <span class="o">=</span> <span class="n">Logger</span><span class="p">(</span><span class="n">opts</span><span class="p">,</span> <span class="n">log_period</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">log_period</span><span class="p">,</span> 
+                    <span class="n">log_prefix</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">log_prefix</span><span class="p">,</span> <span class="n">comment</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">log_comment</span><span class="p">,</span> 
+                    <span class="n">log_dir</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">log_dir</span><span class="p">)</span>
+                <span class="n">debug</span><span class="p">(</span><span class="n">DEBUG</span><span class="o">+</span><span class="mi">1</span><span class="p">,</span> <span class="s">&#39;levels: </span><span class="si">%s</span><span class="s">&#39;</span><span class="p">,</span> <span class="n">levels</span><span class="p">)</span>
+                <span class="n">debug</span><span class="p">(</span><span class="n">DEBUG</span><span class="o">+</span><span class="mi">1</span><span class="p">,</span> <span class="s">&#39;playlists: </span><span class="si">%s</span><span class="s">&#39;</span><span class="p">,</span> <span class="n">playlists</span><span class="p">)</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">enable_stress_test</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">inactive_cycle</span> <span class="o">=</span> <span class="mi">0</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">check_warning_buffering</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">rate_calc</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">rate_calc</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="s">&#39;update&#39;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">checkBuffering</span><span class="p">)</span>
+            <span class="c">#Init media_engine</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">media_engine</span><span class="o">.</span><span class="n">setVideoContainer</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">parser</span><span class="o">.</span><span class="n">getVideoContainer</span><span class="p">())</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">media_engine</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="s">&#39;status-changed&#39;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_onStatusChanged</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">media_engine</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+            <span class="c">#start logger</span>
+            <span class="n">reactor</span><span class="o">.</span><span class="n">callLater</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">log_period</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="p">)</span>
+            <span class="c">#</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">fetchNextSegment</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">parser</span><span class="o">.</span><span class="n">deferred</span><span class="o">.</span><span class="n">addCallback</span><span class="p">(</span><span class="n">_on_done</span><span class="p">)</span>
+</div>
+<div class="viewcode-block" id="TapasPlayer.getMaxBufferTime"><a class="viewcode-back" href="../tapasPlayer.html#TapasPlayer.TapasPlayer.getMaxBufferTime">[docs]</a>    <span class="k">def</span> <span class="nf">getMaxBufferTime</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        Gets max buffer in seconds under which the playback is considered in Buffering by default</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_buffer_time</span>
+</div>
+<div class="viewcode-block" id="TapasPlayer.getCurrentLevel"><a class="viewcode-back" href="../tapasPlayer.html#TapasPlayer.TapasPlayer.getCurrentLevel">[docs]</a>    <span class="k">def</span> <span class="nf">getCurrentLevel</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        Gets index of current level starting from 0 for the lowest video quality level</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">cur_level</span>
+</div>
+<div class="viewcode-block" id="TapasPlayer.setCurrentLevel"><a class="viewcode-back" href="../tapasPlayer.html#TapasPlayer.TapasPlayer.setCurrentLevel">[docs]</a>    <span class="k">def</span> <span class="nf">setCurrentLevel</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span><span class="n">level</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        Sets index of current level starting from 0 for the lowest video quality level</span>
+
+<span class="sd">        :param level: the level index</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">cur_level</span> <span class="o">=</span> <span class="n">level</span>
+</div>
+<div class="viewcode-block" id="TapasPlayer.getMaxLevel"><a class="viewcode-back" href="../tapasPlayer.html#TapasPlayer.TapasPlayer.getMaxLevel">[docs]</a>    <span class="k">def</span> <span class="nf">getMaxLevel</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        Gets index of maximum level starting from 0 for the lowest video quality level</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+        <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">parser</span><span class="o">.</span><span class="n">getLevels</span><span class="p">())</span><span class="o">-</span><span class="mi">1</span>
+</div>
+<div class="viewcode-block" id="TapasPlayer.getCurrentSegmentIndex"><a class="viewcode-back" href="../tapasPlayer.html#TapasPlayer.TapasPlayer.getCurrentSegmentIndex">[docs]</a>    <span class="k">def</span> <span class="nf">getCurrentSegmentIndex</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        Gets index of the current segment of the sub-playlist</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">cur_index</span>
+</div>
+<div class="viewcode-block" id="TapasPlayer.setCurrentSegmentIndex"><a class="viewcode-back" href="../tapasPlayer.html#TapasPlayer.TapasPlayer.setCurrentSegmentIndex">[docs]</a>    <span class="k">def</span> <span class="nf">setCurrentSegmentIndex</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span><span class="n">index</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        Sets index of the current segment of the sub-playlist</span>
+
+<span class="sd">        :param index: segment index</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">cur_index</span> <span class="o">=</span> <span class="n">index</span>
+</div>
+<div class="viewcode-block" id="TapasPlayer.getCurrentRate"><a class="viewcode-back" href="../tapasPlayer.html#TapasPlayer.TapasPlayer.getCurrentRate">[docs]</a>    <span class="k">def</span> <span class="nf">getCurrentRate</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        Gets current video quality level rate in B/s</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+        <span class="n">levels</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parser</span><span class="o">.</span><span class="n">getLevels</span><span class="p">()</span>
+        <span class="n">cur_rate</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">levels</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">getCurrentLevel</span><span class="p">()][</span><span class="s">&#39;rate&#39;</span><span class="p">])</span>
+        <span class="k">return</span> <span class="n">cur_rate</span>
+</div>
+<div class="viewcode-block" id="TapasPlayer.getMaxRate"><a class="viewcode-back" href="../tapasPlayer.html#TapasPlayer.TapasPlayer.getMaxRate">[docs]</a>    <span class="k">def</span> <span class="nf">getMaxRate</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        Gets maximum video quality level rate in B/s</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+        <span class="n">levels</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parser</span><span class="o">.</span><span class="n">getLevels</span><span class="p">()</span>
+        <span class="n">rates</span> <span class="o">=</span> <span class="p">[</span><span class="nb">float</span><span class="p">(</span><span class="n">i</span><span class="p">[</span><span class="s">&#39;rate&#39;</span><span class="p">])</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">levels</span><span class="p">]</span>
+        <span class="k">return</span> <span class="nb">max</span><span class="p">(</span><span class="n">rates</span><span class="p">)</span>
+</div>
+<div class="viewcode-block" id="TapasPlayer.getMinRate"><a class="viewcode-back" href="../tapasPlayer.html#TapasPlayer.TapasPlayer.getMinRate">[docs]</a>    <span class="k">def</span> <span class="nf">getMinRate</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        Gets minimum video quality level rate in B/s</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+        <span class="n">levels</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parser</span><span class="o">.</span><span class="n">getLevels</span><span class="p">()</span>
+        <span class="n">rates</span> <span class="o">=</span> <span class="p">[</span><span class="nb">float</span><span class="p">(</span><span class="n">i</span><span class="p">[</span><span class="s">&#39;rate&#39;</span><span class="p">])</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">levels</span><span class="p">]</span>
+        <span class="k">return</span> <span class="nb">min</span><span class="p">(</span><span class="n">rates</span><span class="p">)</span>
+</div>
+<div class="viewcode-block" id="TapasPlayer.getLevelRates"><a class="viewcode-back" href="../tapasPlayer.html#TapasPlayer.TapasPlayer.getLevelRates">[docs]</a>    <span class="k">def</span> <span class="nf">getLevelRates</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        Gets a list of video quality level rates in B/s</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+        <span class="n">levels</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parser</span><span class="o">.</span><span class="n">getLevels</span><span class="p">()</span>
+        <span class="n">_r</span><span class="o">=</span> <span class="p">[</span><span class="nb">float</span><span class="p">(</span><span class="n">i</span><span class="p">[</span><span class="s">&#39;rate&#39;</span><span class="p">])</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">levels</span><span class="p">]</span>
+        <span class="n">rates</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="nb">len</span><span class="p">(</span><span class="n">_r</span><span class="p">)):</span>
+            <span class="n">rates</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">_r</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
+        <span class="k">return</span> <span class="n">rates</span>
+</div>
+<div class="viewcode-block" id="TapasPlayer.getLevelResolutions"><a class="viewcode-back" href="../tapasPlayer.html#TapasPlayer.TapasPlayer.getLevelResolutions">[docs]</a>    <span class="k">def</span> <span class="nf">getLevelResolutions</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        Gets a list of available video resolutions</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+        <span class="n">levels</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parser</span><span class="o">.</span><span class="n">getLevels</span><span class="p">()</span>
+        <span class="n">resolutions</span> <span class="o">=</span> <span class="p">[</span><span class="n">i</span><span class="p">[</span><span class="s">&#39;resolution&#39;</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">levels</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">resolutions</span>
+</div>
+<div class="viewcode-block" id="TapasPlayer.getLastDownloadedTime"><a class="viewcode-back" href="../tapasPlayer.html#TapasPlayer.TapasPlayer.getLastDownloadedTime">[docs]</a>    <span class="k">def</span> <span class="nf">getLastDownloadedTime</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        Gets time spent to download the last segment</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">last_downloaded_time</span>
+</div>
+<div class="viewcode-block" id="TapasPlayer.getStartSegmentRequest"><a class="viewcode-back" href="../tapasPlayer.html#TapasPlayer.TapasPlayer.getStartSegmentRequest">[docs]</a>    <span class="k">def</span> <span class="nf">getStartSegmentRequest</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        Gets timestamp when starts the download of the last segment</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">start_segment_request</span>  
+</div>
+<div class="viewcode-block" id="TapasPlayer.getStopSegmentRequest"><a class="viewcode-back" href="../tapasPlayer.html#TapasPlayer.TapasPlayer.getStopSegmentRequest">[docs]</a>    <span class="k">def</span> <span class="nf">getStopSegmentRequest</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        Gets timestamp when stops the download of the last segment</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">stop_segment_request</span>  
+</div>
+<div class="viewcode-block" id="TapasPlayer.getLastFragmentBytes"><a class="viewcode-back" href="../tapasPlayer.html#TapasPlayer.TapasPlayer.getLastFragmentBytes">[docs]</a>    <span class="k">def</span> <span class="nf">getLastFragmentBytes</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        Gets the last fragment size in B</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">last_fragment_size</span>
+</div>
+<div class="viewcode-block" id="TapasPlayer.getDownloadedBytes"><a class="viewcode-back" href="../tapasPlayer.html#TapasPlayer.TapasPlayer.getDownloadedBytes">[docs]</a>    <span class="k">def</span> <span class="nf">getDownloadedBytes</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        Gets total downloaded bytes in B</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">downloaded_bytes</span>
+</div>
+<div class="viewcode-block" id="TapasPlayer.getDownloadedSegments"><a class="viewcode-back" href="../tapasPlayer.html#TapasPlayer.TapasPlayer.getDownloadedSegments">[docs]</a>    <span class="k">def</span> <span class="nf">getDownloadedSegments</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        Gets total number of downloaded segments</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">downloaded_segments</span>
+</div>
+<div class="viewcode-block" id="TapasPlayer.getBandwidth"><a class="viewcode-back" href="../tapasPlayer.html#TapasPlayer.TapasPlayer.getBandwidth">[docs]</a>    <span class="k">def</span> <span class="nf">getBandwidth</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        Gets last estimated available bandwidth in B/s</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">bwe</span>
+</div>
+<div class="viewcode-block" id="TapasPlayer.getPausedTime"><a class="viewcode-back" href="../tapasPlayer.html#TapasPlayer.TapasPlayer.getPausedTime">[docs]</a>    <span class="k">def</span> <span class="nf">getPausedTime</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        Gets time spent on pause</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">paused_time</span>
+</div>
+<div class="viewcode-block" id="TapasPlayer.getInactiveCycles"><a class="viewcode-back" href="../tapasPlayer.html#TapasPlayer.TapasPlayer.getInactiveCycles">[docs]</a>    <span class="k">def</span> <span class="nf">getInactiveCycles</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        Gets the number of inactive cycles before activate the control action</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">inactive_cycle</span>
+    </div>
+<div class="viewcode-block" id="TapasPlayer.getLogFileName"><a class="viewcode-back" href="../tapasPlayer.html#TapasPlayer.TapasPlayer.getLogFileName">[docs]</a>    <span class="k">def</span> <span class="nf">getLogFileName</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        Gets log file name</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">log_file</span>  
+</div>
+<div class="viewcode-block" id="TapasPlayer.fetchNextSegment"><a class="viewcode-back" href="../tapasPlayer.html#TapasPlayer.TapasPlayer.fetchNextSegment">[docs]</a>    <span class="k">def</span> <span class="nf">fetchNextSegment</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span> 
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        Schedules the download of the next segment at current level</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+        <span class="n">playlist</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parser</span><span class="o">.</span><span class="n">playlists</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">getCurrentLevel</span><span class="p">()]</span>
+        <span class="n">debug</span><span class="p">(</span><span class="n">DEBUG</span><span class="o">+</span><span class="mi">1</span><span class="p">,</span> <span class="s">&#39;</span><span class="si">%s</span><span class="s"> fetchNextSegment level: </span><span class="si">%d</span><span class="s"> cur_index: </span><span class="si">%d</span><span class="s">&#39;</span><span class="p">,</span> <span class="bp">self</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">getCurrentLevel</span><span class="p">(),</span> <span class="bp">self</span><span class="o">.</span><span class="n">getCurrentSegmentIndex</span><span class="p">())</span>
+        <span class="c">#</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">getCurrentSegmentIndex</span><span class="p">()</span> <span class="o">&lt;</span> <span class="n">playlist</span><span class="p">[</span><span class="s">&#39;start_index&#39;</span><span class="p">]:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">setCurrentSegmentIndex</span><span class="p">(</span><span class="n">playlist</span><span class="p">[</span><span class="s">&#39;start_index&#39;</span><span class="p">])</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">getCurrentSegmentIndex</span><span class="p">()</span> <span class="o">&gt;</span> <span class="n">playlist</span><span class="p">[</span><span class="s">&#39;end_index&#39;</span><span class="p">]:</span>
+            <span class="c"># else live video (ONLY HLS!!)</span>
+            <span class="k">if</span> <span class="n">playlist</span><span class="p">[</span><span class="s">&#39;is_live&#39;</span><span class="p">]</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">parser</span><span class="o">.</span><span class="n">getPlaylistType</span><span class="p">()</span> <span class="o">==</span> <span class="s">&#39;HLS&#39;</span><span class="p">:</span>
+                <span class="n">debug</span><span class="p">(</span><span class="n">DEBUG</span><span class="p">,</span> <span class="s">&#39;</span><span class="si">%s</span><span class="s"> fetchNextSegment cur_index </span><span class="si">%d</span><span class="s">&#39;</span><span class="p">,</span> <span class="bp">self</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">getCurrentSegmentIndex</span><span class="p">())</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">parser</span><span class="o">.</span><span class="n">updateLevelSegmentsList</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">getCurrentLevel</span><span class="p">())</span><span class="o">.</span><span class="n">addCallback</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_updatePlaylistDone</span><span class="p">)</span>
+            <span class="c"># if video is vod</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">debug</span><span class="p">(</span><span class="n">DEBUG</span><span class="p">,</span> <span class="s">&#39;</span><span class="si">%s</span><span class="s"> fetchNextSegment last index&#39;</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span>
+            <span class="k">return</span>
+        <span class="n">cur_index</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">getCurrentSegmentIndex</span><span class="p">()</span>
+        <span class="n">levels</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parser</span><span class="o">.</span><span class="n">getLevels</span><span class="p">()</span>
+        <span class="n">url_segment</span> <span class="o">=</span> <span class="n">playlist</span><span class="p">[</span><span class="s">&#39;segments&#39;</span><span class="p">][</span><span class="n">cur_index</span><span class="p">][</span><span class="s">&#39;url&#39;</span><span class="p">]</span>
+        <span class="n">byterange</span> <span class="o">=</span> <span class="n">playlist</span><span class="p">[</span><span class="s">&#39;segments&#39;</span><span class="p">][</span><span class="n">cur_index</span><span class="p">][</span><span class="s">&#39;byterange&#39;</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">byterange</span> <span class="o">!=</span> <span class="s">&#39;&#39;</span><span class="p">:</span>
+            <span class="n">debug</span><span class="p">(</span><span class="n">DEBUG</span><span class="p">,</span> <span class="s">&#39;</span><span class="si">%s</span><span class="s"> fetchNextSegment level: </span><span class="si">%d</span><span class="s"> (</span><span class="si">%s</span><span class="s">/s) </span><span class="si">%d</span><span class="s">/</span><span class="si">%d</span><span class="s"> : </span><span class="si">%s</span><span class="s"> (byterange=</span><span class="si">%s</span><span class="s">)&#39;</span><span class="p">,</span> <span class="bp">self</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">getCurrentLevel</span><span class="p">(),</span> 
+                <span class="n">format_bytes</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">levels</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">getCurrentLevel</span><span class="p">()][</span><span class="s">&#39;rate&#39;</span><span class="p">])),</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">getCurrentSegmentIndex</span><span class="p">(),</span> 
+                <span class="n">playlist</span><span class="p">[</span><span class="s">&#39;end_index&#39;</span><span class="p">],</span> <span class="n">url_segment</span><span class="p">,</span> <span class="n">byterange</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">debug</span><span class="p">(</span><span class="n">DEBUG</span><span class="p">,</span> <span class="s">&#39;</span><span class="si">%s</span><span class="s"> fetchNextSegment level: </span><span class="si">%d</span><span class="s"> (</span><span class="si">%s</span><span class="s">/s) </span><span class="si">%d</span><span class="s">/</span><span class="si">%d</span><span class="s"> : </span><span class="si">%s</span><span class="s">&#39;</span><span class="p">,</span> <span class="bp">self</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">getCurrentLevel</span><span class="p">(),</span> 
+                <span class="n">format_bytes</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">levels</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">getCurrentLevel</span><span class="p">()][</span><span class="s">&#39;rate&#39;</span><span class="p">])),</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">getCurrentSegmentIndex</span><span class="p">(),</span> 
+                <span class="n">playlist</span><span class="p">[</span><span class="s">&#39;end_index&#39;</span><span class="p">],</span> <span class="n">url_segment</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">controller</span><span class="o">.</span><span class="n">isBuffering</span><span class="p">():</span>
+            <span class="n">idle_duration</span> <span class="o">=</span> <span class="mf">0.0</span> <span class="c">#fetch segment after the last segment download is completed</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">idle_duration</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">controller</span><span class="o">.</span><span class="n">getIdleDuration</span><span class="p">()</span>
+        <span class="c"># load the next segment</span>
+        <span class="n">reactor</span><span class="o">.</span><span class="n">callLater</span><span class="p">(</span><span class="n">idle_duration</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">startDownload</span><span class="p">,</span> <span class="n">url_segment</span><span class="p">,</span> <span class="n">byterange</span><span class="p">)</span>
+</div>
+<div class="viewcode-block" id="TapasPlayer.startDownload"><a class="viewcode-back" href="../tapasPlayer.html#TapasPlayer.TapasPlayer.startDownload">[docs]</a>    <span class="k">def</span> <span class="nf">startDownload</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">byterange</span><span class="o">=</span><span class="s">&#39;&#39;</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        Starts the segment download and set the timestamp of start segment download</span>
+
+<span class="sd">        :param url: segment url</span>
+<span class="sd">        :param byterange: segment byterange (logical segmentation of video level)</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+        <span class="n">debug</span><span class="p">(</span><span class="n">DEBUG</span><span class="o">+</span><span class="mi">1</span><span class="p">,</span> <span class="s">&#39;</span><span class="si">%s</span><span class="s"> startDownload </span><span class="si">%s</span><span class="s"> (byterange </span><span class="si">%s</span><span class="s">)&#39;</span><span class="p">,</span> <span class="bp">self</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">byterange</span><span class="p">)</span>
+        <span class="c"># start download</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">use_persistent_connection</span><span class="p">:</span>
+            <span class="c"># start a new connection</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_initConnection</span><span class="p">(</span><span class="n">url</span><span class="p">)</span>
+                <span class="k">return</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">client</span><span class="p">:</span>
+                <span class="k">return</span>
+            <span class="n">_</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">path</span> <span class="o">=</span> <span class="n">parse_url</span><span class="p">(</span><span class="n">url</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">makeRequest</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">byterange</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">byterange</span> <span class="o">==</span> <span class="s">&#39;&#39;</span><span class="p">:</span>
+                <span class="n">d</span> <span class="o">=</span> <span class="n">getPage</span><span class="p">(</span><span class="n">url</span><span class="p">,</span> <span class="n">agent</span><span class="o">=</span><span class="n">USER_AGENT</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">d</span> <span class="o">=</span> <span class="n">getPage</span><span class="p">(</span><span class="n">url</span><span class="p">,</span> <span class="n">agent</span><span class="o">=</span><span class="n">USER_AGENT</span><span class="p">,</span> <span class="n">headers</span><span class="o">=</span><span class="nb">dict</span><span class="p">(</span><span class="nb">range</span><span class="o">=</span><span class="s">&#39;bytes=&#39;</span><span class="o">+</span><span class="n">byterange</span><span class="p">))</span>
+            <span class="n">d</span><span class="o">.</span><span class="n">deferred</span><span class="o">.</span><span class="n">addCallback</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">playNextGotRequest</span><span class="p">,</span> <span class="n">d</span><span class="p">)</span>
+            <span class="n">d</span><span class="o">.</span><span class="n">deferred</span><span class="o">.</span><span class="n">addErrback</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">playNextGotError</span><span class="p">,</span> <span class="n">d</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">start_segment_request</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+        
+    <span class="c"># callback if do not use persistent connection</span></div>
+<div class="viewcode-block" id="TapasPlayer.playNextGotRequest"><a class="viewcode-back" href="../tapasPlayer.html#TapasPlayer.TapasPlayer.playNextGotRequest">[docs]</a>    <span class="k">def</span> <span class="nf">playNextGotRequest</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">factory</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        Updates feedbacks, calculates the control action and sets level of the next segment.</span>
+
+<span class="sd">        :param data: downloaded data</span>
+<span class="sd">        :param factory: the twisted factory (used without persistent connection)</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">stop_segment_request</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+        <span class="n">download_time</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">stop_segment_request</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">start_segment_request</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">last_downloaded_time</span> <span class="o">=</span> <span class="n">download_time</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">bwe</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">data</span><span class="p">)</span><span class="o">/</span><span class="n">download_time</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">last_fragment_size</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">downloaded_bytes</span> <span class="o">+=</span> <span class="nb">len</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">downloaded_segments</span> <span class="o">+=</span> <span class="mi">1</span>
+        <span class="n">debug</span><span class="p">(</span><span class="n">DEBUG</span><span class="p">,</span> <span class="s">&#39;</span><span class="si">%s</span><span class="s"> __got_request: bwe: </span><span class="si">%s</span><span class="s">/s (fragment size: </span><span class="si">%s</span><span class="s">)&#39;</span><span class="p">,</span> <span class="bp">self</span><span class="p">,</span> 
+            <span class="n">format_bytes</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">bwe</span><span class="p">),</span> <span class="n">format_bytes</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">data</span><span class="p">)))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">queuedTime</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">media_engine</span><span class="o">.</span><span class="n">getQueuedTime</span><span class="p">()</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">parser</span><span class="o">.</span><span class="n">getFragmentDuration</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">queuedBytes</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">media_engine</span><span class="o">.</span><span class="n">getQueuedBytes</span><span class="p">()</span> <span class="o">+</span> <span class="nb">len</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">media_engine</span><span class="o">.</span><span class="n">pushData</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">parser</span><span class="o">.</span><span class="n">getFragmentDuration</span><span class="p">(),</span> <span class="bp">self</span><span class="o">.</span><span class="n">getCurrentLevel</span><span class="p">(),</span> <span class="bp">self</span><span class="o">.</span><span class="n">parser</span><span class="o">.</span><span class="n">_getCapsDemuxer</span><span class="p">())</span>
+        <span class="k">del</span> <span class="n">data</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">cur_index</span> <span class="o">+=</span> <span class="mi">1</span>
+        <span class="c">#Do something before calculating new control action</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_onNewSegment</span><span class="p">()</span>
+        <span class="c">#Passing player parameters at the controller to calculate the control action</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">updateFeedback</span><span class="p">(</span><span class="n">flag_check_buffering</span><span class="o">=</span><span class="bp">False</span><span class="p">)</span>
+        <span class="c">#calc control action</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">controller</span><span class="o">.</span><span class="n">setControlAction</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">controller</span><span class="o">.</span><span class="n">calcControlAction</span><span class="p">())</span>
+        <span class="c"># set new level</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">getDownloadedSegments</span><span class="p">()</span> <span class="o">&gt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">getInactiveCycles</span><span class="p">():</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">enable_stress_test</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">stressTest</span><span class="p">()</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">setLevel</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">controller</span><span class="o">.</span><span class="n">getControlAction</span><span class="p">())</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">fetchNextSegment</span><span class="p">()</span>
+
+    <span class="c"># error handling if do not use persistent connection</span></div>
+<div class="viewcode-block" id="TapasPlayer.playNextGotError"><a class="viewcode-back" href="../tapasPlayer.html#TapasPlayer.TapasPlayer.playNextGotError">[docs]</a>    <span class="k">def</span> <span class="nf">playNextGotError</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">error</span><span class="p">,</span> <span class="n">factory</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        Handles error when download a segment without persistent connection</span>
+
+<span class="sd">        :param error: the occurred error</span>
+<span class="sd">        :param factory: the twisted factory (used without persistent connection)</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+        <span class="n">debug</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="s">&#39;</span><span class="si">%s</span><span class="s"> playNextGotError url: </span><span class="si">%s</span><span class="s"> error: </span><span class="si">%s</span><span class="s">&#39;</span><span class="p">,</span> <span class="bp">self</span><span class="p">,</span> <span class="n">factory</span><span class="o">.</span><span class="n">url</span><span class="p">,</span> <span class="n">error</span><span class="p">)</span>
+        <span class="c"># update playlist</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">parser</span><span class="o">.</span><span class="n">getPlaylistType</span><span class="p">()</span><span class="o">==</span><span class="s">&#39;HLS&#39;</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">parser</span><span class="o">.</span><span class="n">updateLevelSegmentsList</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cur_level</span><span class="p">)</span><span class="o">.</span><span class="n">addCallback</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_updatePlaylistDone</span><span class="p">)</span>
+</div>
+<div class="viewcode-block" id="TapasPlayer.setLevel"><a class="viewcode-back" href="../tapasPlayer.html#TapasPlayer.TapasPlayer.setLevel">[docs]</a>    <span class="k">def</span> <span class="nf">setLevel</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">rate</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        Sets the level corresponding to the rate specified in B/s</span>
+
+<span class="sd">        :param rate: rate in B/s that determines the level. The level is the one whose rate is the highest below ``rate``.</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+        <span class="n">new_level</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">controller</span><span class="o">.</span><span class="n">quantizeRate</span><span class="p">(</span><span class="n">rate</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">new_level</span> <span class="o">!=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getCurrentLevel</span><span class="p">():</span>
+            <span class="n">debug</span><span class="p">(</span><span class="n">DEBUG</span><span class="p">,</span> <span class="s">&quot;</span><span class="si">%s</span><span class="s"> setLevel: level: </span><span class="si">%d</span><span class="s">&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="p">,</span> <span class="n">new_level</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">setCurrentLevel</span><span class="p">(</span><span class="n">new_level</span><span class="p">)</span>
+            <span class="c">#self.onLevelChanged()</span>
+        <span class="k">return</span> <span class="n">new_level</span>
+</div>
+<div class="viewcode-block" id="TapasPlayer.stressTest"><a class="viewcode-back" href="../tapasPlayer.html#TapasPlayer.TapasPlayer.stressTest">[docs]</a>    <span class="k">def</span> <span class="nf">stressTest</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        Switches the video quality level cyclically every segment        </span>
+<span class="sd">        &#39;&#39;&#39;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">check_warning_buffering</span> <span class="o">=</span> <span class="bp">False</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">getCurrentLevel</span><span class="p">()</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">getMaxLevel</span><span class="p">():</span>
+           <span class="n">new_level</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">new_level</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">getCurrentLevel</span><span class="p">()</span> <span class="o">+</span> <span class="mi">1</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">setCurrentLevel</span><span class="p">(</span><span class="n">new_level</span><span class="p">)</span>
+        <span class="c">#self.onLevelChanged()</span>
+        <span class="k">return</span> <span class="n">new_level</span>
+</div>
+<div class="viewcode-block" id="TapasPlayer.checkBuffering"><a class="viewcode-back" href="../tapasPlayer.html#TapasPlayer.TapasPlayer.checkBuffering">[docs]</a>    <span class="k">def</span> <span class="nf">checkBuffering</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_arg</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        Checks if the playback is going to buffering.</span>
+<span class="sd">        Estimates the time required to complete the download of the current segment and verifies that it is less than the playout buffer lenght.</span>
+
+<span class="sd">        In the case of &quot;warning buffering&quot;, it deletes the current segment download, calculates the control action and sets the new level.</span>
+<span class="sd">        This feature is available only with persistent connection.</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+        <span class="c">#FIXME Can&#39;t use it without persistent connection</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">rate_calc</span><span class="o">.</span><span class="n">rate</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">cur_index</span> <span class="o">&gt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">inactive_cycle</span><span class="p">:</span>
+            <span class="n">remaining_secs</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">remaining_data</span><span class="o">/</span><span class="bp">self</span><span class="o">.</span><span class="n">rate_calc</span><span class="o">.</span><span class="n">rate</span><span class="p">)</span>
+            <span class="n">debug</span><span class="p">(</span><span class="n">DEBUG</span><span class="o">+</span><span class="mi">1</span><span class="p">,</span><span class="s">&quot;</span><span class="si">%s</span><span class="s"> checkBuffering: rate </span><span class="si">%s</span><span class="s">/s, remaining_data </span><span class="si">%s</span><span class="s">, remaining_secs </span><span class="si">%.3f</span><span class="s">, queued_time </span><span class="si">%.2f</span><span class="s"> &quot;</span><span class="p">,</span> <span class="bp">self</span><span class="p">,</span> 
+                <span class="n">format_bytes</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">rate_calc</span><span class="o">.</span><span class="n">rate</span><span class="p">),</span> <span class="n">format_bytes</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">remaining_data</span><span class="p">),</span> <span class="n">remaining_secs</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">media_engine</span><span class="o">.</span><span class="n">getQueuedTime</span><span class="p">())</span> 
+            <span class="c">#Can cancel download only if the current level is greater than 0</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">media_engine</span><span class="o">.</span><span class="n">getQueuedTime</span><span class="p">()</span> <span class="o">&lt;</span> <span class="n">remaining_secs</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">getCurrentLevel</span><span class="p">()</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span> 
+                <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">stop</span><span class="p">()</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">stop_segment_request</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="c">#update stop reqest when warning buffering occurs</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">bwe</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">rate_calc</span><span class="o">.</span><span class="n">rate</span>
+                <span class="c">#Passing player parameters at the controller to calculate the control action</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">updateFeedback</span><span class="p">(</span><span class="n">flag_check_buffering</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+                <span class="c">#calc control action</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">controller</span><span class="o">.</span><span class="n">setControlAction</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">controller</span><span class="o">.</span><span class="n">calcControlAction</span><span class="p">())</span>
+                <span class="c"># set new level</span>
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">cur_index</span> <span class="o">&gt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">inactive_cycle</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">setLevel</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">controller</span><span class="o">.</span><span class="n">getControlAction</span><span class="p">())</span>
+                    <span class="n">debug</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="s">&quot;</span><span class="si">%s</span><span class="s"> WARNING BUFFERING!!! Delete and reload segment at level: </span><span class="si">%d</span><span class="s">&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">getCurrentLevel</span><span class="p">())</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span>
+       </div>
+<div class="viewcode-block" id="TapasPlayer.updateFeedback"><a class="viewcode-back" href="../tapasPlayer.html#TapasPlayer.TapasPlayer.updateFeedback">[docs]</a>    <span class="k">def</span> <span class="nf">updateFeedback</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">flag_check_buffering</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        Updates dictionary of feedbacks before passing it to the controller.</span>
+
+<span class="sd">        :param flag_check_buffering: true if this method is called from ``checkBuffering``. False otherwise.</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">feedback</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">queued_bytes</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">media_engine</span><span class="o">.</span><span class="n">getQueuedBytes</span><span class="p">(),</span>
+           <span class="n">queued_time</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">media_engine</span><span class="o">.</span><span class="n">getQueuedTime</span><span class="p">(),</span>
+           <span class="n">max_buffer_time</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">getMaxBufferTime</span><span class="p">(),</span>
+           <span class="n">bwe</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">getBandwidth</span><span class="p">(),</span>
+           <span class="n">level</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">getCurrentLevel</span><span class="p">(),</span>
+           <span class="n">max_level</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">getMaxLevel</span><span class="p">(),</span>
+           <span class="n">cur_rate</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">getCurrentRate</span><span class="p">(),</span>
+           <span class="n">max_rate</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">getMaxRate</span><span class="p">(),</span>
+           <span class="n">min_rate</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">getMinRate</span><span class="p">(),</span>
+           <span class="n">player_status</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">media_engine</span><span class="o">.</span><span class="n">getStatus</span><span class="p">(),</span>
+           <span class="n">paused_time</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">getPausedTime</span><span class="p">(),</span>
+           <span class="n">last_fragment_size</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">getLastFragmentBytes</span><span class="p">(),</span>
+           <span class="n">last_download_time</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">getLastDownloadedTime</span><span class="p">(),</span>
+           <span class="n">downloaded_bytes</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">getDownloadedBytes</span><span class="p">(),</span>
+           <span class="n">fragment_duration</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">parser</span><span class="o">.</span><span class="n">getFragmentDuration</span><span class="p">(),</span>
+           <span class="n">rates</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">getLevelRates</span><span class="p">(),</span>
+           <span class="n">is_check_buffering</span><span class="o">=</span><span class="n">flag_check_buffering</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">controller</span><span class="o">.</span><span class="n">setPlayerFeedback</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">feedback</span><span class="p">)</span>
+        </div>
+<div class="viewcode-block" id="TapasPlayer.log"><a class="viewcode-back" href="../tapasPlayer.html#TapasPlayer.TapasPlayer.log">[docs]</a>    <span class="k">def</span> <span class="nf">log</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        Logs useful metrics every ``log_period`` seconds</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="p">:</span>
+           <span class="k">return</span>
+        <span class="n">stats</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">proc_stats</span><span class="o">.</span><span class="n">getStats</span><span class="p">()</span>
+        <span class="n">opts</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span>
+           <span class="n">enqueued_b</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">media_engine</span><span class="o">.</span><span class="n">getQueuedBytes</span><span class="p">(),</span>   <span class="c">#2</span>
+           <span class="n">enqueued_t</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">media_engine</span><span class="o">.</span><span class="n">getQueuedTime</span><span class="p">(),</span>    <span class="c">#3</span>
+           <span class="n">bwe</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">getBandwidth</span><span class="p">(),</span>                         <span class="c">#4</span>
+           <span class="n">cur</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">getCurrentRate</span><span class="p">(),</span>                       <span class="c">#5</span>
+           <span class="n">level</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">getCurrentLevel</span><span class="p">(),</span>                    <span class="c">#6</span>
+           <span class="n">max_level</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">getMaxLevel</span><span class="p">(),</span>                    <span class="c">#7</span>
+           <span class="n">player_status</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">media_engine</span><span class="o">.</span><span class="n">getStatus</span><span class="p">(),</span>     <span class="c">#8</span>
+           <span class="n">paused_time</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">getPausedTime</span><span class="p">(),</span>                <span class="c">#9</span>
+           <span class="n">downloaded_bytes</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">getDownloadedBytes</span><span class="p">(),</span>      <span class="c">#10</span>
+           <span class="n">cpu</span><span class="o">=</span><span class="n">stats</span><span class="p">[</span><span class="s">&quot;cpu_percent&quot;</span><span class="p">],</span>                        <span class="c">#11</span>
+           <span class="n">mem</span><span class="o">=</span><span class="n">stats</span><span class="p">[</span><span class="s">&quot;memory_percent&quot;</span><span class="p">],</span>                     <span class="c">#12    </span>
+           <span class="n">rss</span><span class="o">=</span><span class="n">stats</span><span class="p">[</span><span class="s">&quot;memory_rss&quot;</span><span class="p">],</span>                         <span class="c">#13</span>
+           <span class="n">vms</span><span class="o">=</span><span class="n">stats</span><span class="p">[</span><span class="s">&quot;memory_vms&quot;</span><span class="p">],</span>                         <span class="c">#14</span>
+           <span class="n">ts_start_req</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">getStartSegmentRequest</span><span class="p">(),</span>      <span class="c">#15                      </span>
+           <span class="n">ts_stop_req</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">getStopSegmentRequest</span><span class="p">(),</span>        <span class="c">#16                         </span>
+        <span class="p">)</span>
+        <span class="n">levels</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parser</span><span class="o">.</span><span class="n">getLevels</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">getLevelRates</span><span class="p">())):</span>
+           <span class="n">opts</span><span class="p">[</span><span class="s">&#39;q</span><span class="si">%d</span><span class="s">&#39;</span> <span class="o">%</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">levels</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="s">&#39;rate&#39;</span><span class="p">])</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">opts</span><span class="p">)</span>
+        <span class="k">del</span> <span class="n">opts</span>
+        <span class="n">reactor</span><span class="o">.</span><span class="n">callLater</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">log_period</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="p">)</span>
+</div>
+    <span class="k">def</span> <span class="nf">_onNewSegment</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        Does something before calculating new control action</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+        <span class="k">pass</span>
+
+    <span class="c"># callback</span>
+    <span class="k">def</span> <span class="nf">_onDataReceiving</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">connection</span><span class="p">,</span> <span class="n">data_diff</span><span class="p">,</span> <span class="n">remaining_data</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        Does something before segment download is completed (used with persistent connection)</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">remaining_data</span> <span class="o">=</span> <span class="n">remaining_data</span>
+        <span class="n">debug</span><span class="p">(</span><span class="n">DEBUG</span><span class="o">+</span><span class="mi">1</span><span class="p">,</span> <span class="s">&#39;</span><span class="si">%s</span><span class="s"> _onDataReceiving: </span><span class="si">%s</span><span class="s"> </span><span class="si">%s</span><span class="s">&#39;</span><span class="p">,</span> <span class="bp">self</span><span class="p">,</span> <span class="n">format_bytes</span><span class="p">(</span><span class="n">data_diff</span><span class="p">),</span> <span class="n">format_bytes</span><span class="p">(</span><span class="n">remaining_data</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">rate_calc</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">data_diff</span><span class="p">)</span>
+
+    <span class="c"># callback</span>
+    <span class="k">def</span> <span class="nf">_onDataReceived</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">connection</span><span class="p">,</span> <span class="n">data</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        Does something when segment download is completed (used with persistent connection)</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+
+        <span class="n">debug</span><span class="p">(</span><span class="n">DEBUG</span><span class="o">+</span><span class="mi">1</span><span class="p">,</span> <span class="s">&#39;</span><span class="si">%s</span><span class="s"> _onDataReceived: </span><span class="si">%s</span><span class="s">&#39;</span><span class="p">,</span> <span class="bp">self</span><span class="p">,</span> <span class="n">format_bytes</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">data</span><span class="p">)))</span>  
+        <span class="bp">self</span><span class="o">.</span><span class="n">playNextGotRequest</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="bp">None</span><span class="p">)</span>
+        
+    <span class="k">def</span> <span class="nf">_initConnection</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">url</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        Initializes connection with url (only with persistent connection)</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">stop</span><span class="p">()</span>
+        <span class="n">debug</span><span class="p">(</span><span class="n">DEBUG</span><span class="o">+</span><span class="mi">1</span><span class="p">,</span> <span class="s">&#39;</span><span class="si">%s</span><span class="s"> _initConnection: </span><span class="si">%s</span><span class="s">&#39;</span><span class="p">,</span> <span class="bp">self</span><span class="p">,</span> <span class="n">url</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">connection</span> <span class="o">=</span> <span class="n">ClientFactory</span><span class="p">(</span><span class="n">url</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="s">&#39;connection-made&#39;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_onConnectionMade</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="s">&#39;connection-lost&#39;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_onConnectionLost</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="s">&#39;data-received&#39;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_onDataReceived</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="s">&#39;data-receiving&#39;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_onDataReceiving</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_onConnectionMade</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">connection</span><span class="p">,</span> <span class="n">host</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        Does something when connection with host is established (only with persistent connection).</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+        <span class="n">debug</span><span class="p">(</span><span class="n">DEBUG</span><span class="o">+</span><span class="mi">1</span><span class="p">,</span> <span class="s">&#39;</span><span class="si">%s</span><span class="s"> _onConnectionMade: </span><span class="si">%s</span><span class="s">&#39;</span><span class="p">,</span> <span class="bp">self</span><span class="p">,</span> <span class="n">host</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">log_comment</span><span class="p">(</span><span class="s">&#39;Host: </span><span class="si">%s</span><span class="s">&#39;</span> <span class="o">%</span><span class="n">host</span><span class="p">)</span>
+        <span class="n">reactor</span><span class="o">.</span><span class="n">callLater</span><span class="p">(</span><span class="mf">0.1</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">fetchNextSegment</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_onConnectionLost</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">connection</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        Does something when connection with host is lost (only with persistent connection).</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">connection</span> <span class="o">=</span> <span class="bp">None</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">parser</span><span class="o">.</span><span class="n">getPlaylistType</span><span class="p">()</span><span class="o">==</span><span class="s">&#39;HLS&#39;</span><span class="p">:</span>
+            <span class="n">debug</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="s">&#39;</span><span class="si">%s</span><span class="s"> _onConnectionLost&#39;</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">parser</span><span class="o">.</span><span class="n">updateLevelSegmentsList</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cur_level</span><span class="p">)</span><span class="o">.</span><span class="n">addCallback</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_updatePlaylistDone</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>   <span class="c">#only for youtube (for check buffering)</span>
+            <span class="n">debug</span><span class="p">(</span><span class="n">DEBUG</span><span class="p">,</span> <span class="s">&#39;</span><span class="si">%s</span><span class="s"> _onConnectionLost&#39;</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">fetchNextSegment</span><span class="p">()</span>
+
+    <span class="c">#When status changes calls &#39;onPlaying&#39; and &#39;onPaused&#39; hooks</span>
+    <span class="c">#callback</span>
+    <span class="k">def</span> <span class="nf">_onStatusChanged</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">media_engine</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        Does something when player status change from play to pause and viceversa</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+        <span class="k">if</span> <span class="n">media_engine</span><span class="o">.</span><span class="n">status</span> <span class="o">==</span> <span class="n">media_engine</span><span class="o">.</span><span class="n">PLAYING</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">controller</span><span class="o">.</span><span class="n">onPlaying</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">paused_time</span> <span class="o">+=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">t_paused</span> 
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">controller</span><span class="o">.</span><span class="n">onPaused</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">t_paused</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+
+    <span class="c">#callback</span>
+    <span class="k">def</span> <span class="nf">_updatePlaylistDone</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">):</span>
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        Called when the playlist for the current level is update</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+        <span class="n">playlist</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parser</span><span class="o">.</span><span class="n">playlists</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">getCurrentLevel</span><span class="p">()]</span>
+        <span class="n">debug</span><span class="p">(</span><span class="n">DEBUG</span><span class="o">+</span><span class="mi">1</span><span class="p">,</span> <span class="s">&#39;</span><span class="si">%s</span><span class="s"> playlist: </span><span class="si">%s</span><span class="s">&#39;</span><span class="p">,</span> <span class="bp">self</span><span class="p">,</span> <span class="n">pformat</span><span class="p">(</span><span class="n">playlist</span><span class="p">))</span>
+        <span class="c"># start play if playlist has more than 2 fragments</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">playlist</span><span class="p">[</span><span class="s">&#39;segments&#39;</span><span class="p">])</span> <span class="o">&gt;</span> <span class="mi">2</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">getCurrentSegmentIndex</span><span class="p">()</span> <span class="o">&lt;</span> <span class="n">playlist</span><span class="p">[</span><span class="s">&#39;end_index&#39;</span><span class="p">]:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">fetchNextSegment</span><span class="p">()</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">reactor</span><span class="o">.</span><span class="n">callLater</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">parser</span><span class="o">.</span><span class="n">getFragmentDuration</span><span class="p">(),</span> <span class="bp">self</span><span class="o">.</span><span class="n">fetchNextSegment</span><span class="p">)</span></div>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             >index</a></li>
+        <li><a href="../index.html">TAPAS 1.0 documentation</a> &raquo;</li>
+          <li><a href="index.html" >Module code</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2014, Vito Caldaralo.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.2.
+    </div>
+  </body>
+</html>

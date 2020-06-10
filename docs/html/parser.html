@@ -1,0 +1,224 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Parser &mdash; TAPAS 1.0 documentation</title>
+    
+    <link rel="stylesheet" href="_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    './',
+        VERSION:     '1.0',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    <link rel="top" title="TAPAS 1.0 documentation" href="index.html" />
+    <link rel="next" title="Media Engine" href="mediaEngine.html" />
+    <link rel="prev" title="Controller" href="controller.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="mediaEngine.html" title="Media Engine"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="controller.html" title="Controller"
+             accesskey="P">previous</a> |</li>
+        <li><a href="index.html">TAPAS 1.0 documentation</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="parser">
+<h1>Parser<a class="headerlink" href="#parser" title="Permalink to this headline">¶</a></h1>
+<p>The main task of a parser is to populate and update two data structures, <tt class="docutils literal"><span class="pre">playlists</span></tt> and <tt class="docutils literal"><span class="pre">levels</span></tt>, which are used by <tt class="docutils literal"><span class="pre">TapasPlayer</span></tt>.</p>
+<dl class="docutils">
+<dt>The <tt class="docutils literal"><span class="pre">playlists</span></tt> data structure is a list of dictionaries, one for each available video level. The dictionary has to include the following keys:</dt>
+<dd><ol class="first last arabic simple">
+<li><tt class="docutils literal"><span class="pre">url</span></tt>: the video level base URL;</li>
+<li><tt class="docutils literal"><span class="pre">is_live</span></tt>: true if the video is a live stream;</li>
+<li><tt class="docutils literal"><span class="pre">segments</span></tt>: a list of dictionaries. Each dictionary contains: the <tt class="docutils literal"><span class="pre">segment_url</span></tt>; the <tt class="docutils literal"><span class="pre">segment_duration</span></tt>; and the <tt class="docutils literal"><span class="pre">byterange</span></tt>, when the video segmentation is logic.</li>
+<li><tt class="docutils literal"><span class="pre">start_index</span></tt>: index of the first chunk to be downloaded by the <em>Downlaoder</em>;</li>
+<li><tt class="docutils literal"><span class="pre">end_index</span></tt>: index of the last chunk of the current playlist;</li>
+<li><tt class="docutils literal"><span class="pre">duration</span></tt>: the duration (in seconds) of the playlist.</li>
+</ol>
+</dd>
+<dt>The <tt class="docutils literal"><span class="pre">levels</span></tt> data structure is a list of dictionaries, one for each available video level. The dictionary has to include the following keys:</dt>
+<dd><ol class="first last arabic simple">
+<li><tt class="docutils literal"><span class="pre">rate</span></tt>: is the encoding rate of the video level measured in bytes/s;</li>
+<li><tt class="docutils literal"><span class="pre">resolution</span></tt>: is the video level resolution.</li>
+</ol>
+</dd>
+</dl>
+<div class="section" id="base-class-methods">
+<h2>Base class methods<a class="headerlink" href="#base-class-methods" title="Permalink to this headline">¶</a></h2>
+<dl class="class">
+<dt id="parsers.BaseParser.BaseParser">
+<em class="property">class </em><tt class="descclassname">parsers.BaseParser.</tt><tt class="descname">BaseParser</tt><big>(</big><em>url</em>, <em>playlists_type</em>, <em>video_container</em><big>)</big><a class="reference internal" href="_modules/parsers/BaseParser.html#BaseParser"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#parsers.BaseParser.BaseParser" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="method">
+<dt id="parsers.BaseParser.BaseParser.getFragmentDuration">
+<tt class="descname">getFragmentDuration</tt><big>(</big><big>)</big><a class="reference internal" href="_modules/parsers/BaseParser.html#BaseParser.getFragmentDuration"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#parsers.BaseParser.BaseParser.getFragmentDuration" title="Permalink to this definition">¶</a></dt>
+<dd><p>Gets the nominal fragment duration in seconds for the current playlist</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body">int</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="parsers.BaseParser.BaseParser.getLevels">
+<tt class="descname">getLevels</tt><big>(</big><big>)</big><a class="reference internal" href="_modules/parsers/BaseParser.html#BaseParser.getLevels"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#parsers.BaseParser.BaseParser.getLevels" title="Permalink to this definition">¶</a></dt>
+<dd><p>Gets the list of levels.
+Returns a list of dictionary with rate (in B/s) and resolution for each entry</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body">list of dictionaries</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="parsers.BaseParser.BaseParser.getPlaylistType">
+<tt class="descname">getPlaylistType</tt><big>(</big><big>)</big><a class="reference internal" href="_modules/parsers/BaseParser.html#BaseParser.getPlaylistType"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#parsers.BaseParser.BaseParser.getPlaylistType" title="Permalink to this definition">¶</a></dt>
+<dd><p>Gets the playlist type (e.g. HLS or DASH)</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body">str</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="parsers.BaseParser.BaseParser.getPlaylists">
+<tt class="descname">getPlaylists</tt><big>(</big><big>)</big><a class="reference internal" href="_modules/parsers/BaseParser.html#BaseParser.getPlaylists"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#parsers.BaseParser.BaseParser.getPlaylists" title="Permalink to this definition">¶</a></dt>
+<dd><p>For eache level, gets its playlist with the segments properties (e.g. list of segment url, segments duration etc.)</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body">list of dictionaries</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="parsers.BaseParser.BaseParser.getVideoContainer">
+<tt class="descname">getVideoContainer</tt><big>(</big><big>)</big><a class="reference internal" href="_modules/parsers/BaseParser.html#BaseParser.getVideoContainer"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#parsers.BaseParser.BaseParser.getVideoContainer" title="Permalink to this definition">¶</a></dt>
+<dd><p>Gets the video container type (e.g. MP4 or MPEGTS)</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body">str</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="parsers.BaseParser.BaseParser.loadPlaylist">
+<tt class="descname">loadPlaylist</tt><big>(</big><big>)</big><a class="reference internal" href="_modules/parsers/BaseParser.html#BaseParser.loadPlaylist"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#parsers.BaseParser.BaseParser.loadPlaylist" title="Permalink to this definition">¶</a></dt>
+<dd><p>Called to start the download of the playlists for each level. 
+(It must be implemented for new parser).</p>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Parser</a><ul>
+<li><a class="reference internal" href="#base-class-methods">Base class methods</a></li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="controller.html"
+                        title="previous chapter">Controller</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="mediaEngine.html"
+                        title="next chapter">Media Engine</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="_sources/parser.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="mediaEngine.html" title="Media Engine"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="controller.html" title="Controller"
+             >previous</a> |</li>
+        <li><a href="index.html">TAPAS 1.0 documentation</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2014, Vito Caldaralo.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.2.
+    </div>
+  </body>
+</html>

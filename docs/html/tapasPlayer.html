@@ -1,0 +1,407 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>TapasPlayer &mdash; TAPAS 1.0 documentation</title>
+    
+    <link rel="stylesheet" href="_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    './',
+        VERSION:     '1.0',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    <link rel="top" title="TAPAS 1.0 documentation" href="index.html" />
+    <link rel="next" title="Controller" href="controller.html" />
+    <link rel="prev" title="TAPAS documentation - Tool for rApid Prototyping of Adaptive Streaming algorithms" href="index.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="controller.html" title="Controller"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="index.html" title="TAPAS documentation - Tool for rApid Prototyping of Adaptive Streaming algorithms"
+             accesskey="P">previous</a> |</li>
+        <li><a href="index.html">TAPAS 1.0 documentation</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="tapasplayer">
+<h1>TapasPlayer<a class="headerlink" href="#tapasplayer" title="Permalink to this headline">¶</a></h1>
+<a class="reference internal image-reference" href="_images/tapas-workflow.png"><img alt="tapas-workflow" class="align-center" src="_images/tapas-workflow.png" style="width: 1122.8px; height: 285.6px;" /></a>
+<p>When the <a class="reference internal" href="#tapasplayer">TapasPlayer</a>&#8216;s <tt class="docutils literal"><span class="pre">play()</span></tt> method is issued the <a class="reference external" href="parser.html">Parser</a> downloads the manifest and populates two lists of dictionaries <tt class="docutils literal"><span class="pre">playlists</span></tt> and <tt class="docutils literal"><span class="pre">levels</span></tt>: the first one maintains information about segments (or chunks), the second one holds video levels (or representations) information. The two lists of dictionaries are then passed to the player.
+At this point two concurrent threads are started: 1) a thread that fills the playout buffer by fetching the video segments from the HTTP server and 2) a thread that drains the playout buffer to play the videostream.
+Let us now focus on the thread that fills the buffer. The following operations are executed in a loop until the last video segment has been played:</p>
+<blockquote>
+<div><ol class="arabic">
+<li><p class="first">The <tt class="docutils literal"><span class="pre">Downloader</span></tt> fetches from the HTTP server the current segment at the selected video level.</p>
+</li>
+<li><dl class="first docutils">
+<dt>When the download is completed the following operations are performed:</dt>
+<dd><ol class="first last loweralpha simple">
+<li>The segment is enqueued in the playout buffer handled by the <a class="reference external" href="mediaEngine.html">MediaEngine</a> component.</li>
+<li>The player gets from the <a class="reference external" href="mediaEngine.html">MediaEngine</a> the queue length and other feedbacks and builds the player <tt class="docutils literal"><span class="pre">feedback</span></tt> dictionary with this information. Then player <tt class="docutils literal"><span class="pre">feedback</span></tt> is passed to the <a class="reference external" href="controller.html">Controller</a>.</li>
+<li>The <a class="reference external" href="controller.html">Controller</a> computes two values: 1) the control action, i.e. the video level rate of the next segment to be downloaded; 2) the idle duration, possibly equal to zero, that is the time interval that has to elapse before the next video segment can be fetched.</li>
+</ol>
+</dd>
+</dl>
+</li>
+<li><p class="first">A timer of duration <tt class="docutils literal"><span class="pre">idle</span> <span class="pre">duration</span></tt> is started. When the timer expires the loop repeats from step 1.</p>
+</li>
+</ol>
+</div></blockquote>
+<p>Finally, the thread draining the playout buffer is handled by the <a class="reference external" href="mediaEngine.html">MediaEngine</a> that decodes the compressed video frames, and plays the raw video.</p>
+<div class="section" id="methods">
+<h2>Methods<a class="headerlink" href="#methods" title="Permalink to this headline">¶</a></h2>
+<dl class="class">
+<dt id="TapasPlayer.TapasPlayer">
+<em class="property">class </em><tt class="descclassname">TapasPlayer.</tt><tt class="descname">TapasPlayer</tt><big>(</big><em>controller</em>, <em>parser</em>, <em>media_engine</em>, <em>log_sub_dir=''</em>, <em>log_period=0.1</em>, <em>max_buffer_time=60</em>, <em>inactive_cycle=1</em>, <em>initial_level=1</em>, <em>use_persistent_connection=True</em>, <em>check_warning_buffering=True</em>, <em>stress_test=False</em><big>)</big><a class="reference internal" href="_modules/TapasPlayer.html#TapasPlayer"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#TapasPlayer.TapasPlayer" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="method">
+<dt id="TapasPlayer.TapasPlayer.checkBuffering">
+<tt class="descname">checkBuffering</tt><big>(</big><em>_arg</em><big>)</big><a class="reference internal" href="_modules/TapasPlayer.html#TapasPlayer.checkBuffering"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#TapasPlayer.TapasPlayer.checkBuffering" title="Permalink to this definition">¶</a></dt>
+<dd><p>Checks if the playback is going to buffering.
+Estimates the time required to complete the download of the current segment and verifies that it is less than the playout buffer lenght.</p>
+<p>In the case of &#8220;warning buffering&#8221;, it deletes the current segment download, calculates the control action and sets the new level.
+This feature is available only with persistent connection.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="TapasPlayer.TapasPlayer.fetchNextSegment">
+<tt class="descname">fetchNextSegment</tt><big>(</big><big>)</big><a class="reference internal" href="_modules/TapasPlayer.html#TapasPlayer.fetchNextSegment"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#TapasPlayer.TapasPlayer.fetchNextSegment" title="Permalink to this definition">¶</a></dt>
+<dd><p>Schedules the download of the next segment at current level</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="TapasPlayer.TapasPlayer.getBandwidth">
+<tt class="descname">getBandwidth</tt><big>(</big><big>)</big><a class="reference internal" href="_modules/TapasPlayer.html#TapasPlayer.getBandwidth"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#TapasPlayer.TapasPlayer.getBandwidth" title="Permalink to this definition">¶</a></dt>
+<dd><p>Gets last estimated available bandwidth in B/s</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="TapasPlayer.TapasPlayer.getCurrentLevel">
+<tt class="descname">getCurrentLevel</tt><big>(</big><big>)</big><a class="reference internal" href="_modules/TapasPlayer.html#TapasPlayer.getCurrentLevel"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#TapasPlayer.TapasPlayer.getCurrentLevel" title="Permalink to this definition">¶</a></dt>
+<dd><p>Gets index of current level starting from 0 for the lowest video quality level</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="TapasPlayer.TapasPlayer.getCurrentRate">
+<tt class="descname">getCurrentRate</tt><big>(</big><big>)</big><a class="reference internal" href="_modules/TapasPlayer.html#TapasPlayer.getCurrentRate"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#TapasPlayer.TapasPlayer.getCurrentRate" title="Permalink to this definition">¶</a></dt>
+<dd><p>Gets current video quality level rate in B/s</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="TapasPlayer.TapasPlayer.getCurrentSegmentIndex">
+<tt class="descname">getCurrentSegmentIndex</tt><big>(</big><big>)</big><a class="reference internal" href="_modules/TapasPlayer.html#TapasPlayer.getCurrentSegmentIndex"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#TapasPlayer.TapasPlayer.getCurrentSegmentIndex" title="Permalink to this definition">¶</a></dt>
+<dd><p>Gets index of the current segment of the sub-playlist</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="TapasPlayer.TapasPlayer.getDownloadedBytes">
+<tt class="descname">getDownloadedBytes</tt><big>(</big><big>)</big><a class="reference internal" href="_modules/TapasPlayer.html#TapasPlayer.getDownloadedBytes"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#TapasPlayer.TapasPlayer.getDownloadedBytes" title="Permalink to this definition">¶</a></dt>
+<dd><p>Gets total downloaded bytes in B</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="TapasPlayer.TapasPlayer.getDownloadedSegments">
+<tt class="descname">getDownloadedSegments</tt><big>(</big><big>)</big><a class="reference internal" href="_modules/TapasPlayer.html#TapasPlayer.getDownloadedSegments"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#TapasPlayer.TapasPlayer.getDownloadedSegments" title="Permalink to this definition">¶</a></dt>
+<dd><p>Gets total number of downloaded segments</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="TapasPlayer.TapasPlayer.getInactiveCycles">
+<tt class="descname">getInactiveCycles</tt><big>(</big><big>)</big><a class="reference internal" href="_modules/TapasPlayer.html#TapasPlayer.getInactiveCycles"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#TapasPlayer.TapasPlayer.getInactiveCycles" title="Permalink to this definition">¶</a></dt>
+<dd><p>Gets the number of inactive cycles before activate the control action</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="TapasPlayer.TapasPlayer.getLastDownloadedTime">
+<tt class="descname">getLastDownloadedTime</tt><big>(</big><big>)</big><a class="reference internal" href="_modules/TapasPlayer.html#TapasPlayer.getLastDownloadedTime"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#TapasPlayer.TapasPlayer.getLastDownloadedTime" title="Permalink to this definition">¶</a></dt>
+<dd><p>Gets time spent to download the last segment</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="TapasPlayer.TapasPlayer.getLastFragmentBytes">
+<tt class="descname">getLastFragmentBytes</tt><big>(</big><big>)</big><a class="reference internal" href="_modules/TapasPlayer.html#TapasPlayer.getLastFragmentBytes"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#TapasPlayer.TapasPlayer.getLastFragmentBytes" title="Permalink to this definition">¶</a></dt>
+<dd><p>Gets the last fragment size in B</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="TapasPlayer.TapasPlayer.getLevelRates">
+<tt class="descname">getLevelRates</tt><big>(</big><big>)</big><a class="reference internal" href="_modules/TapasPlayer.html#TapasPlayer.getLevelRates"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#TapasPlayer.TapasPlayer.getLevelRates" title="Permalink to this definition">¶</a></dt>
+<dd><p>Gets a list of video quality level rates in B/s</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="TapasPlayer.TapasPlayer.getLevelResolutions">
+<tt class="descname">getLevelResolutions</tt><big>(</big><big>)</big><a class="reference internal" href="_modules/TapasPlayer.html#TapasPlayer.getLevelResolutions"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#TapasPlayer.TapasPlayer.getLevelResolutions" title="Permalink to this definition">¶</a></dt>
+<dd><p>Gets a list of available video resolutions</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="TapasPlayer.TapasPlayer.getLogFileName">
+<tt class="descname">getLogFileName</tt><big>(</big><big>)</big><a class="reference internal" href="_modules/TapasPlayer.html#TapasPlayer.getLogFileName"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#TapasPlayer.TapasPlayer.getLogFileName" title="Permalink to this definition">¶</a></dt>
+<dd><p>Gets log file name</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="TapasPlayer.TapasPlayer.getMaxBufferTime">
+<tt class="descname">getMaxBufferTime</tt><big>(</big><big>)</big><a class="reference internal" href="_modules/TapasPlayer.html#TapasPlayer.getMaxBufferTime"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#TapasPlayer.TapasPlayer.getMaxBufferTime" title="Permalink to this definition">¶</a></dt>
+<dd><p>Gets max buffer in seconds under which the playback is considered in Buffering by default</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="TapasPlayer.TapasPlayer.getMaxLevel">
+<tt class="descname">getMaxLevel</tt><big>(</big><big>)</big><a class="reference internal" href="_modules/TapasPlayer.html#TapasPlayer.getMaxLevel"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#TapasPlayer.TapasPlayer.getMaxLevel" title="Permalink to this definition">¶</a></dt>
+<dd><p>Gets index of maximum level starting from 0 for the lowest video quality level</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="TapasPlayer.TapasPlayer.getMaxRate">
+<tt class="descname">getMaxRate</tt><big>(</big><big>)</big><a class="reference internal" href="_modules/TapasPlayer.html#TapasPlayer.getMaxRate"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#TapasPlayer.TapasPlayer.getMaxRate" title="Permalink to this definition">¶</a></dt>
+<dd><p>Gets maximum video quality level rate in B/s</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="TapasPlayer.TapasPlayer.getMinRate">
+<tt class="descname">getMinRate</tt><big>(</big><big>)</big><a class="reference internal" href="_modules/TapasPlayer.html#TapasPlayer.getMinRate"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#TapasPlayer.TapasPlayer.getMinRate" title="Permalink to this definition">¶</a></dt>
+<dd><p>Gets minimum video quality level rate in B/s</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="TapasPlayer.TapasPlayer.getPausedTime">
+<tt class="descname">getPausedTime</tt><big>(</big><big>)</big><a class="reference internal" href="_modules/TapasPlayer.html#TapasPlayer.getPausedTime"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#TapasPlayer.TapasPlayer.getPausedTime" title="Permalink to this definition">¶</a></dt>
+<dd><p>Gets time spent on pause</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="TapasPlayer.TapasPlayer.getStartSegmentRequest">
+<tt class="descname">getStartSegmentRequest</tt><big>(</big><big>)</big><a class="reference internal" href="_modules/TapasPlayer.html#TapasPlayer.getStartSegmentRequest"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#TapasPlayer.TapasPlayer.getStartSegmentRequest" title="Permalink to this definition">¶</a></dt>
+<dd><p>Gets timestamp when starts the download of the last segment</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="TapasPlayer.TapasPlayer.getStopSegmentRequest">
+<tt class="descname">getStopSegmentRequest</tt><big>(</big><big>)</big><a class="reference internal" href="_modules/TapasPlayer.html#TapasPlayer.getStopSegmentRequest"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#TapasPlayer.TapasPlayer.getStopSegmentRequest" title="Permalink to this definition">¶</a></dt>
+<dd><p>Gets timestamp when stops the download of the last segment</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="TapasPlayer.TapasPlayer.log">
+<tt class="descname">log</tt><big>(</big><big>)</big><a class="reference internal" href="_modules/TapasPlayer.html#TapasPlayer.log"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#TapasPlayer.TapasPlayer.log" title="Permalink to this definition">¶</a></dt>
+<dd><p>Logs useful metrics every <tt class="docutils literal"><span class="pre">log_period</span></tt> seconds</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="TapasPlayer.TapasPlayer.play">
+<tt class="descname">play</tt><big>(</big><big>)</big><a class="reference internal" href="_modules/TapasPlayer.html#TapasPlayer.play"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#TapasPlayer.TapasPlayer.play" title="Permalink to this definition">¶</a></dt>
+<dd><p>Starts Parser, creates Logger, initializes MediaEngine, and fetches the first segment when the parser has finished</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="TapasPlayer.TapasPlayer.playNextGotError">
+<tt class="descname">playNextGotError</tt><big>(</big><em>error</em>, <em>factory</em><big>)</big><a class="reference internal" href="_modules/TapasPlayer.html#TapasPlayer.playNextGotError"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#TapasPlayer.TapasPlayer.playNextGotError" title="Permalink to this definition">¶</a></dt>
+<dd><p>Handles error when download a segment without persistent connection</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>error</strong> &#8211; the occurred error</li>
+<li><strong>factory</strong> &#8211; the twisted factory (used without persistent connection)</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="TapasPlayer.TapasPlayer.playNextGotRequest">
+<tt class="descname">playNextGotRequest</tt><big>(</big><em>data</em>, <em>factory</em><big>)</big><a class="reference internal" href="_modules/TapasPlayer.html#TapasPlayer.playNextGotRequest"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#TapasPlayer.TapasPlayer.playNextGotRequest" title="Permalink to this definition">¶</a></dt>
+<dd><p>Updates feedbacks, calculates the control action and sets level of the next segment.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>data</strong> &#8211; downloaded data</li>
+<li><strong>factory</strong> &#8211; the twisted factory (used without persistent connection)</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="TapasPlayer.TapasPlayer.setCurrentLevel">
+<tt class="descname">setCurrentLevel</tt><big>(</big><em>level</em><big>)</big><a class="reference internal" href="_modules/TapasPlayer.html#TapasPlayer.setCurrentLevel"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#TapasPlayer.TapasPlayer.setCurrentLevel" title="Permalink to this definition">¶</a></dt>
+<dd><p>Sets index of current level starting from 0 for the lowest video quality level</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>level</strong> &#8211; the level index</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="TapasPlayer.TapasPlayer.setCurrentSegmentIndex">
+<tt class="descname">setCurrentSegmentIndex</tt><big>(</big><em>index</em><big>)</big><a class="reference internal" href="_modules/TapasPlayer.html#TapasPlayer.setCurrentSegmentIndex"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#TapasPlayer.TapasPlayer.setCurrentSegmentIndex" title="Permalink to this definition">¶</a></dt>
+<dd><p>Sets index of the current segment of the sub-playlist</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>index</strong> &#8211; segment index</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="TapasPlayer.TapasPlayer.setLevel">
+<tt class="descname">setLevel</tt><big>(</big><em>rate</em><big>)</big><a class="reference internal" href="_modules/TapasPlayer.html#TapasPlayer.setLevel"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#TapasPlayer.TapasPlayer.setLevel" title="Permalink to this definition">¶</a></dt>
+<dd><p>Sets the level corresponding to the rate specified in B/s</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>rate</strong> &#8211; rate in B/s that determines the level. The level is the one whose rate is the highest below <tt class="docutils literal"><span class="pre">rate</span></tt>.</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="TapasPlayer.TapasPlayer.startDownload">
+<tt class="descname">startDownload</tt><big>(</big><em>url</em>, <em>byterange=''</em><big>)</big><a class="reference internal" href="_modules/TapasPlayer.html#TapasPlayer.startDownload"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#TapasPlayer.TapasPlayer.startDownload" title="Permalink to this definition">¶</a></dt>
+<dd><p>Starts the segment download and set the timestamp of start segment download</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>url</strong> &#8211; segment url</li>
+<li><strong>byterange</strong> &#8211; segment byterange (logical segmentation of video level)</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="TapasPlayer.TapasPlayer.stressTest">
+<tt class="descname">stressTest</tt><big>(</big><big>)</big><a class="reference internal" href="_modules/TapasPlayer.html#TapasPlayer.stressTest"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#TapasPlayer.TapasPlayer.stressTest" title="Permalink to this definition">¶</a></dt>
+<dd><p>Switches the video quality level cyclically every segment</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="TapasPlayer.TapasPlayer.updateFeedback">
+<tt class="descname">updateFeedback</tt><big>(</big><em>flag_check_buffering</em><big>)</big><a class="reference internal" href="_modules/TapasPlayer.html#TapasPlayer.updateFeedback"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#TapasPlayer.TapasPlayer.updateFeedback" title="Permalink to this definition">¶</a></dt>
+<dd><p>Updates dictionary of feedbacks before passing it to the controller.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>flag_check_buffering</strong> &#8211; true if this method is called from <tt class="docutils literal"><span class="pre">checkBuffering</span></tt>. False otherwise.</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">TapasPlayer</a><ul>
+<li><a class="reference internal" href="#methods">Methods</a></li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="index.html"
+                        title="previous chapter">TAPAS documentation - Tool for rApid Prototyping of Adaptive Streaming algorithms</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="controller.html"
+                        title="next chapter">Controller</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="_sources/tapasPlayer.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="controller.html" title="Controller"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="index.html" title="TAPAS documentation - Tool for rApid Prototyping of Adaptive Streaming algorithms"
+             >previous</a> |</li>
+        <li><a href="index.html">TAPAS 1.0 documentation</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2014, Vito Caldaralo.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.2.
+    </div>
+  </body>
+</html>

@@ -1,0 +1,362 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Controller &mdash; TAPAS 1.0 documentation</title>
+    
+    <link rel="stylesheet" href="_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    './',
+        VERSION:     '1.0',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    <link rel="top" title="TAPAS 1.0 documentation" href="index.html" />
+    <link rel="next" title="Parser" href="parser.html" />
+    <link rel="prev" title="TapasPlayer" href="tapasPlayer.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="parser.html" title="Parser"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="tapasPlayer.html" title="TapasPlayer"
+             accesskey="P">previous</a> |</li>
+        <li><a href="index.html">TAPAS 1.0 documentation</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="controller">
+<h1>Controller<a class="headerlink" href="#controller" title="Permalink to this headline">¶</a></h1>
+<p>The controller is the central component of the adaptive video streaming system. Its goal is to decide the video level,
+among those advertised in the manifest files, based on <tt class="docutils literal"><span class="pre">feedback</span></tt>, such as the estimated bandwidth or the playout buffer
+length, and the player <em>state</em>.</p>
+<p>The default <tt class="docutils literal"><span class="pre">feedback</span></tt> dictionary, that <tt class="docutils literal"><span class="pre">TapasPlayer</span></tt> updates before calling any new <tt class="docutils literal"><span class="pre">calcControlAction()</span></tt>, is presented in the following table:</p>
+<table border="1" class="docutils">
+<colgroup>
+<col width="50%" />
+<col width="50%" />
+</colgroup>
+<thead valign="bottom">
+<tr class="row-odd"><th class="head">Key</th>
+<th class="head">Unit</th>
+</tr>
+</thead>
+<tbody valign="top">
+<tr class="row-even"><td>queued_bytes</td>
+<td>Bytes</td>
+</tr>
+<tr class="row-odd"><td>queued_time</td>
+<td>seconds</td>
+</tr>
+<tr class="row-even"><td>max_buffer_time</td>
+<td>seconds</td>
+</tr>
+<tr class="row-odd"><td>bwe</td>
+<td>Bytes/sec</td>
+</tr>
+<tr class="row-even"><td>level</td>
+<td>[ ]</td>
+</tr>
+<tr class="row-odd"><td>max_level</td>
+<td>[ ]</td>
+</tr>
+<tr class="row-even"><td>cur_rate</td>
+<td>Bytes/sec</td>
+</tr>
+<tr class="row-odd"><td>max_rate</td>
+<td>Bytes/sec</td>
+</tr>
+<tr class="row-even"><td>min_rate</td>
+<td>Bytes/sec</td>
+</tr>
+<tr class="row-odd"><td>player_status</td>
+<td>boolean</td>
+</tr>
+<tr class="row-even"><td>paused_time</td>
+<td>seconds</td>
+</tr>
+<tr class="row-odd"><td>last_fragment_size</td>
+<td>Bytes</td>
+</tr>
+<tr class="row-even"><td>last_fragment_time</td>
+<td>seconds</td>
+</tr>
+<tr class="row-odd"><td>downloaded_bytes</td>
+<td>Bytes</td>
+</tr>
+<tr class="row-even"><td>fragment_duration</td>
+<td>seconds</td>
+</tr>
+<tr class="row-odd"><td>rates</td>
+<td>Bytes/sec {list}</td>
+</tr>
+<tr class="row-even"><td>is_check_buffering</td>
+<td>boolean</td>
+</tr>
+</tbody>
+</table>
+<p>Typically, an adaptive video streaming controller can be in two different states: <em>buffering</em> or <em>steady state</em>. When in <em>buffering</em>, the client requests a new segment right after the previous has been downloaded in order to quickly build up the player queue; on the other hand,
+during the <em>steady state</em> an <tt class="docutils literal"><span class="pre">idle</span> <span class="pre">period</span></tt> has to elapse to request a new video segment after the last segment download has been completed.</p>
+<div class="section" id="base-class-methods">
+<h2>Base class methods<a class="headerlink" href="#base-class-methods" title="Permalink to this headline">¶</a></h2>
+<dl class="class">
+<dt id="controllers.BaseController.BaseController">
+<em class="property">class </em><tt class="descclassname">controllers.BaseController.</tt><tt class="descname">BaseController</tt><a class="reference internal" href="_modules/controllers/BaseController.html#BaseController"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#controllers.BaseController.BaseController" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="method">
+<dt id="controllers.BaseController.BaseController.calcControlAction">
+<tt class="descname">calcControlAction</tt><big>(</big><big>)</big><a class="reference internal" href="_modules/controllers/BaseController.html#BaseController.calcControlAction"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#controllers.BaseController.BaseController.calcControlAction" title="Permalink to this definition">¶</a></dt>
+<dd><p>Computes the control action. It must return a value in B/s
+(It must be implemented for new controller).</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="controllers.BaseController.BaseController.getControlAction">
+<tt class="descname">getControlAction</tt><big>(</big><big>)</big><a class="reference internal" href="_modules/controllers/BaseController.html#BaseController.getControlAction"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#controllers.BaseController.BaseController.getControlAction" title="Permalink to this definition">¶</a></dt>
+<dd><p>Gets the value of control action in B/s</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="controllers.BaseController.BaseController.getIdleDuration">
+<tt class="descname">getIdleDuration</tt><big>(</big><big>)</big><a class="reference internal" href="_modules/controllers/BaseController.html#BaseController.getIdleDuration"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#controllers.BaseController.BaseController.getIdleDuration" title="Permalink to this definition">¶</a></dt>
+<dd><p>Gets the <tt class="docutils literal"><span class="pre">idle</span> <span class="pre">duration</span></tt> when the state of player is not buffering</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="controllers.BaseController.BaseController.isBuffering">
+<tt class="descname">isBuffering</tt><big>(</big><big>)</big><a class="reference internal" href="_modules/controllers/BaseController.html#BaseController.isBuffering"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#controllers.BaseController.BaseController.isBuffering" title="Permalink to this definition">¶</a></dt>
+<dd><p>Boolean expression returning true if the state of the player is buffering</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body">bool</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="controllers.BaseController.BaseController.onPaused">
+<tt class="descname">onPaused</tt><big>(</big><big>)</big><a class="reference internal" href="_modules/controllers/BaseController.html#BaseController.onPaused"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#controllers.BaseController.BaseController.onPaused" title="Permalink to this definition">¶</a></dt>
+<dd><p>Called when changing state from play to pause (re-buffering event)</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="controllers.BaseController.BaseController.onPlaying">
+<tt class="descname">onPlaying</tt><big>(</big><big>)</big><a class="reference internal" href="_modules/controllers/BaseController.html#BaseController.onPlaying"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#controllers.BaseController.BaseController.onPlaying" title="Permalink to this definition">¶</a></dt>
+<dd><p>Called when changing state from pause to play</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="controllers.BaseController.BaseController.quantizeRate">
+<tt class="descname">quantizeRate</tt><big>(</big><em>rate</em><big>)</big><a class="reference internal" href="_modules/controllers/BaseController.html#BaseController.quantizeRate"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#controllers.BaseController.BaseController.quantizeRate" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns the highest level index below the <tt class="docutils literal"><span class="pre">rate</span></tt></p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>rate</strong> &#8211; rate to be quantized.</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body">int</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="controllers.BaseController.BaseController.setControlAction">
+<tt class="descname">setControlAction</tt><big>(</big><em>rate</em><big>)</big><a class="reference internal" href="_modules/controllers/BaseController.html#BaseController.setControlAction"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#controllers.BaseController.BaseController.setControlAction" title="Permalink to this definition">¶</a></dt>
+<dd><p>Sets the value of control action in B/s</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>rate</strong> &#8211; the result of control action.</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="controllers.BaseController.BaseController.setIdleDuration">
+<tt class="descname">setIdleDuration</tt><big>(</big><em>idle</em><big>)</big><a class="reference internal" href="_modules/controllers/BaseController.html#BaseController.setIdleDuration"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#controllers.BaseController.BaseController.setIdleDuration" title="Permalink to this definition">¶</a></dt>
+<dd><p>Sets idle duration when in steady state</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>idle</strong> &#8211; seconds of idle between two consecutive downloads.</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="controllers.BaseController.BaseController.setPlayerFeedback">
+<tt class="descname">setPlayerFeedback</tt><big>(</big><em>dict_params</em><big>)</big><a class="reference internal" href="_modules/controllers/BaseController.html#BaseController.setPlayerFeedback"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#controllers.BaseController.BaseController.setPlayerFeedback" title="Permalink to this definition">¶</a></dt>
+<dd><p>Sets the dictionary of all player feedback used for the control. 
+This method is called from <tt class="docutils literal"><span class="pre">TapasPlayer</span></tt> before <tt class="docutils literal"><span class="pre">calcControlAction</span></tt></p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>dict_params</strong> &#8211; dictionary of player feedbacks.</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="rapid-prototyping">
+<h2>Rapid prototyping<a class="headerlink" href="#rapid-prototyping" title="Permalink to this headline">¶</a></h2>
+<p>Now we consider an example showing how an adaptive streaming controller can be implemented. To the purpose we consider a simple controller, named <em>ConventionalController</em>, that is described in details <a class="reference external" href="http://arxiv.org/pdf/1305.0510.pdf">here</a>.</p>
+<div class="highlight-python"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre> 1
+ 2
+ 3
+ 4
+ 5
+ 6
+ 7
+ 8
+ 9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27</pre></div></td><td class="code"><div class="highlight"><pre>class ConventionalController(BaseController):
+   def __init__(self):
+      super(ConventionalController, self).__init__()
+      #Controller parameters
+      self.Q = 15 #seconds
+      self.alpha = 0.2 #Ewma filter
+      self.steady_state = False
+
+   def calcControlAction(self):
+      T = self.feedback[’last_download_time’]
+      cur = self.feedback[’cur_rate’]
+      tau = self.feedback[’fragment_duration’]
+      x = cur * tau / T
+      y = self.ewma_filter(x)
+      self.setIdleDuration(tau - T)
+      return y
+
+   def isBuffering(self):
+      return self.feedback[’queued_time’]&lt;self.Q
+
+   def quantizeRate(self,rate):
+      ...
+      return level
+
+   def ewma_filter(self,rate):
+      ...
+      return filtered_rate
+</pre></div>
+</td></tr></table></div>
+<p>After that, we associate a string to this controller (e.g &#8216;conventional&#8217;) and update the options and imports in <tt class="docutils literal"><span class="pre">play.py</span></tt> to use this controller with TAPAS from command line.</p>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Controller</a><ul>
+<li><a class="reference internal" href="#base-class-methods">Base class methods</a></li>
+<li><a class="reference internal" href="#rapid-prototyping">Rapid prototyping</a></li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="tapasPlayer.html"
+                        title="previous chapter">TapasPlayer</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="parser.html"
+                        title="next chapter">Parser</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="_sources/controller.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="parser.html" title="Parser"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="tapasPlayer.html" title="TapasPlayer"
+             >previous</a> |</li>
+        <li><a href="index.html">TAPAS 1.0 documentation</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2014, Vito Caldaralo.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.2.
+    </div>
+  </body>
+</html>

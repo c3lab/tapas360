@@ -1,0 +1,195 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>TAPAS documentation - Tool for rApid Prototyping of Adaptive Streaming algorithms &mdash; TAPAS 1.0 documentation</title>
+    
+    <link rel="stylesheet" href="_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    './',
+        VERSION:     '1.0',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    <link rel="top" title="TAPAS 1.0 documentation" href="#" />
+    <link rel="next" title="TapasPlayer" href="tapasPlayer.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="tapasPlayer.html" title="TapasPlayer"
+             accesskey="N">next</a> |</li>
+        <li><a href="#">TAPAS 1.0 documentation</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="tapas-documentation-tool-for-rapid-prototyping-of-adaptive-streaming-algorithms">
+<h1>TAPAS documentation - Tool for rApid Prototyping of Adaptive Streaming algorithms<a class="headerlink" href="#tapas-documentation-tool-for-rapid-prototyping-of-adaptive-streaming-algorithms" title="Permalink to this headline">¶</a></h1>
+<p>TAPAS is an open-source Tool for rApid Prototyping of Adaptive Streaming control algorithms. It is a flexible and extensible video streaming client written in Python that allows to easily design and carry out experimental performance evaluations of adaptive streaming controllers without needing to write the code to download video segments, parse manifest files, and decode the video stream.
+TAPAS currently supports DASH and HLS and has been designed to minimize the CPU and memory footprint so that experiments involving a large number of concurrent video flows can carried out using a single client machine.</p>
+<div class="section" id="architecture">
+<h2>Architecture<a class="headerlink" href="#architecture" title="Permalink to this headline">¶</a></h2>
+<a class="reference internal image-reference" href="_images/tapas-architecture.png"><img alt="tapas-architecture" class="align-center" src="_images/tapas-architecture.png" style="width: 701.6px; height: 221.6px;" /></a>
+<dl class="docutils">
+<dt><a class="reference external" href="tapasPlayer.html">TapasPlayer</a> is implemented by aggregation of three interacting components:</dt>
+<dd><ol class="first last arabic simple">
+<li>the <a class="reference external" href="controller.html">Controller</a> that selects the video level of the next segment to be downloaded;</li>
+<li>the <a class="reference external" href="parser.html">Parser</a>, that parses the video manifest file;</li>
+<li>the <a class="reference external" href="mediaEngine.html">MediaEngine</a> that stores the downloaded video in the playout buffer and plays the video.</li>
+</ol>
+</dd>
+</dl>
+<p>Each of these three components can be extended individually by inheriting the corresponding base class. Moreover, it is worth to mention that <a class="reference external" href="tapasPlayer.html">TapasPlayer</a> includes an extensible module that periodically logs in a file the variables of interest.</p>
+<div class="highlight-python"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre>1
+2
+3
+4
+5</pre></div></td><td class="code"><div class="highlight"><pre><span class="n">c</span> <span class="o">=</span> <span class="n">Controller</span><span class="p">(</span><span class="n">ctrl_options</span><span class="p">)</span>
+<span class="n">p</span> <span class="o">=</span> <span class="n">Parser</span><span class="p">(</span><span class="n">url_playlist</span><span class="p">)</span>
+<span class="n">m</span> <span class="o">=</span> <span class="n">MediaEngine</span><span class="p">(</span><span class="n">media_options</span><span class="p">)</span>
+<span class="n">player</span> <span class="o">=</span> <span class="n">TapasPlayer</span><span class="p">(</span><span class="n">controller</span><span class="o">=</span><span class="n">c</span><span class="p">,</span> <span class="n">parser</span><span class="o">=</span><span class="n">p</span><span class="p">,</span> <span class="n">media</span><span class="o">=</span><span class="n">m</span><span class="p">,</span> <span class="n">other_options</span><span class="p">)</span>
+<span class="n">player</span><span class="o">.</span><span class="n">play</span><span class="p">()</span>
+</pre></div>
+</td></tr></table></div>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="tapasPlayer.html">TapasPlayer</a></li>
+<li class="toctree-l1"><a class="reference internal" href="controller.html">Controller</a></li>
+<li class="toctree-l1"><a class="reference internal" href="parser.html">Parser</a></li>
+<li class="toctree-l1"><a class="reference internal" href="mediaEngine.html">Media Engine</a></li>
+</ul>
+</div>
+</div>
+<div class="section" id="usage">
+<h2>Usage<a class="headerlink" href="#usage" title="Permalink to this headline">¶</a></h2>
+<p>Play a default playlist:</p>
+<div class="highlight-python"><div class="highlight"><pre>$ python play.py
+</pre></div>
+</div>
+<p>Play a default playlist with a &#8220;conventional&#8221; adaptive controller:</p>
+<div class="highlight-python"><div class="highlight"><pre>$ python play.py -a conventional
+</pre></div>
+</div>
+<p>Play a YouTube playlist:</p>
+<div class="highlight-python"><div class="highlight"><pre>$ python play.py -u &quot;https://www.youtube.com/watch?v=XSGBVzeBUbk&quot;
+</pre></div>
+</div>
+<p>Play a Rai.tv playlist:</p>
+<div class="highlight-python"><div class="highlight"><pre>$ python play.py -u &quot;http://www.rai.tv/dl/RaiTV/programmi/media/ContentItem-b1a0effc-bba0-472d-bb43-d4cd7c3a8a39.html&quot;
+
+$ python play.py -u &quot;http://mediapolis.rai.it/relinker/relinkerServlet.htm?cont=308709&quot;
+</pre></div>
+</div>
+<p>Play a playlist for logs, without decoding video:</p>
+<div class="highlight-python"><div class="highlight"><pre>$ python play.py -m nodec
+</pre></div>
+</div>
+<p>Play a playlist with a fake player (emulated playout buffer and no decoding):</p>
+<div class="highlight-python"><div class="highlight"><pre>$ python play.py -m fake
+</pre></div>
+</div>
+<p>Play only the highest quality of the playlist:</p>
+<div class="highlight-python"><div class="highlight"><pre>$ python play.py -a max
+</pre></div>
+</div>
+<p>Player options:</p>
+<div class="highlight-python"><div class="highlight"><pre>$ python play.py --help
+</pre></div>
+</div>
+<p>Enable debug:</p>
+<div class="highlight-python"><div class="highlight"><pre>$ DEBUG=2 python play.py
+</pre></div>
+</div>
+</div>
+</div>
+<div class="section" id="indices-and-tables">
+<h1>Indices and tables<a class="headerlink" href="#indices-and-tables" title="Permalink to this headline">¶</a></h1>
+<ul class="simple">
+<li><a class="reference internal" href="genindex.html"><em>Index</em></a></li>
+<li><a class="reference internal" href="py-modindex.html"><em>Module Index</em></a></li>
+<li><a class="reference internal" href="search.html"><em>Search Page</em></a></li>
+</ul>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="#">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">TAPAS documentation - Tool for rApid Prototyping of Adaptive Streaming algorithms</a><ul>
+<li><a class="reference internal" href="#architecture">Architecture</a></li>
+<li><a class="reference internal" href="#usage">Usage</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#indices-and-tables">Indices and tables</a></li>
+</ul>
+
+  <h4>Next topic</h4>
+  <p class="topless"><a href="tapasPlayer.html"
+                        title="next chapter">TapasPlayer</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="_sources/index.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="tapasPlayer.html" title="TapasPlayer"
+             >next</a> |</li>
+        <li><a href="#">TAPAS 1.0 documentation</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2014, Vito Caldaralo.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.2.
+    </div>
+  </body>
+</html>
