@@ -129,4 +129,4 @@ The documentation will be made available in ``docs/sphinx/_build/html``. Many ot
 ## Features to be implemented soon
 [ ] Saliency maps data integration: to allow the design of saliency-based viewport adaptive algorithms 
 
-You are encouraged to add submit feature requests in the Issues section.
+You are encouraged to submit feature requests in the Issues section.
