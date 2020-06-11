@@ -97,7 +97,7 @@ To Enable debug just define the variable ``DEBUG`` to a value lager than 1:
     $ DEBUG=2 python3 play.py
 
 
-## Publicly available HMD dataset
+## Emulating HMD movement with public datasets
 
 TAPAS-360° allows to emulate the user's head position by reading a Comma Separated Values (.csv) file containing the angular data
 jointly with a timestamp related to playback time. The format is simply
@@ -116,10 +116,17 @@ A list of publicly available datasets that can be easily used with TAPAS-360° i
 2. https://www.interdigital.com/data_sets/salient-360-dataset
 3. https://github.com/V-Sense/VR_user_behaviour
 
+It is our plan to provide helper scripts to convert those dataset to a format that is understood by the default HMD emulator provided by TAPAS-360°. Of course, it is always possible modifying the HMD behavior by, f.i., inheriting from the ``HMDEmulator`` class.
+
 ## Documentation
-Documentation can be build using ``sphinx``. To build the documentation in HTML format:
+Documentation can be built using ``sphinx``. To build the documentation in HTML format:
 
     cd docs/sphinx
 	make html
 	
-The documentation will be made available in ``docs/sphinx/_build/html``.
+The documentation will be made available in ``docs/sphinx/_build/html``. Many other options are available (f.i., Latex, epub, etc), run ``make`` to discover all of them.
+
+## Features to be implemented soon
+[ ] Saliency maps data integration: to allow the design of saliency-based viewport adaptive algorithms 
+
+You are encouraged to add submit feature requests in the Issues section.
