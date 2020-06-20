@@ -38,9 +38,15 @@ def getPage(url, contextFactory=None, *args, **kwargs):
     factory.noisy = False
     if scheme == 'https':
         from twisted.internet import ssl
+        from OpenSSL import SSL
         if contextFactory is None:
             contextFactory = ssl.ClientContextFactory()
-        reactor.connectSSL(host, port, factory, contextFactory)
+            contextFactory.method = SSL.SSLv3_METHOD
+        try:
+            reactor.connectSSL(host, port, factory, contextFactory)
+        except:
+            reactor.connectTCP(host, port, factory)
+            
     else:
         reactor.connectTCP(host, port, factory)
     return factory

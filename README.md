@@ -1,17 +1,15 @@
 # TAPAS-360°: a Tool for the Design and Experimental Evaluation of 360° Video Streaming Systems
 
-TAPAS-360° is a tool that allows rapid prototyping of Adaptive Streaming control algorithms and
-viewport-adaptive algorithms for omnidirectional video streaming.
-
+TAPAS is a tool that allows rapid prototyping of Adaptive Streaming control algorithms.
 If you are a developer and you want to design an test a new Adaptive Streaming control algorithm
-or a viewport adaptive algorithm, please check the documentation placed in the ``doc/`` directory.
+you should check the documentation placed in the doc/ directory.
 
 If you are a user and you want to experiment with the control algorithms made available
-by TAPAS-360° you can follow the instructions given below in the "Usage" section.  
+by TAPAS you can follow the instructions given below. 
 
 ## Installation 
 
-For Ubuntu-based Linux distributions install the following building dependencies (also collected in ``dependencies.txt``):
+For Ubuntu-based Linux distributions install the following building dependencies (see ``dependencies.txt``):
 
 ```
 apt-get install --no-install-recommends python3-twisted
@@ -51,53 +49,53 @@ to run TAPAS-360°. Notice that the last script assumes you can run  ``docker`` 
 
 ## Usage
 
-Play a default playlist:
+Play a default playlist: ::
     
     $ python3 play.py
 
-Play a default playlist with a "conventional" adaptive controller:
+Play a default playlist with a "conventional" adaptive controller: ::
     
     $ python3 play.py --controller conventional
     
-Play a playlist specified by its URL:
+Play a playlist specified by its URL: ::
 
     $ python3 play.py --url http://mysite.com/myplaylist.m3u8
 
-Play a sample MPEG-DASH video:
+Play a sample MPEG-DASH video: ::
     
     $ python3 play.py --url http://yt-dash-mse-test.commondatastorage.googleapis.com/media/car-20120827-manifest.mpd
 
-Play an omnidirectional content:
+Play an omnidirectional content: ::
 Play a MPEG-DASH omnidirectional content (DASH playlist is courtesy of Bitmovin): ::
     
-    $ python3 play.py --vr True --url https://bitmovin-a.akamaihd.net/content/playhouse-vr/mpds/105560.mpd
+    $ python3 play.py --vr True --url http://bitmovin-a.akamaihd.net/content/playhouse-vr/mpds/105560.mpd
 
-Play omnidirectional content using the provided "conventional" viewport adaptive strategy (HLS playlist is courtesy of Bitmovin): 
+Play omnidirectional content using the provided "conventional" viewport adaptive strategy (HLS playlist is courtesy of Bitmovin): ::
     
-    $ python3 play.py --vr True --view_controller conventional --url https://bitmovin-a.akamaihd.net/content/playhouse-vr/m3u8s/105560.m3u8
+    $ python3 play.py --vr True --view_controller conventional --url http://bitmovin-a.akamaihd.net/content/playhouse-vr/m3u8s/105560.m3u8
 
-Play a playlist for logs, without decoding video:
+Play a playlist for logs, without decoding video: ::
 
 	$ python3 play.py --media_engine nodec
 
-Play a playlist with a fake player (emulated playout buffer and no decoding):
+Play a playlist with a fake player (emulated playout buffer and no decoding): ::
 
 	$ python3 play.py --media_engine fake
 
-Play only the highest quality of the playlist:
+Play only the highest quality of the playlist: ::
 
 	$ python3 play.py --controller max
 
-Player options:
+Player options: ::
 
 	$ python3 play.py --help
 
-To Enable debug just define the variable ``DEBUG`` to a value lager than 1:
+Enable debug: ::
     
     $ DEBUG=2 python3 play.py
 
 
-## Emulating HMD movement with public datasets
+## Publicly available HMD dataset
 
 TAPAS-360° allows to emulate the user's head position by reading a Comma Separated Values (.csv) file containing the angular data
 jointly with a timestamp related to playback time. The format is simply
@@ -116,17 +114,10 @@ A list of publicly available datasets that can be easily used with TAPAS-360° i
 2. https://www.interdigital.com/data_sets/salient-360-dataset
 3. https://github.com/V-Sense/VR_user_behaviour
 
-It is our plan to provide helper scripts to convert those dataset to a format that is understood by the default HMD emulator provided by TAPAS-360°. Of course, it is always possible modifying the HMD behavior by, f.i., inheriting from the ``HMDEmulator`` class.
-
 ## Documentation
-Documentation can be built using ``sphinx``. To build the documentation in HTML format:
+Documentation can be build using ``sphinx``. To build the documentation in HTML format:
 
     cd docs/sphinx
 	make html
 	
-The documentation will be made available in ``docs/sphinx/_build/html``. Many other options are available (f.i., Latex, epub, etc), run ``make`` to discover all of them.
-
-## Features to be implemented soon
-[ ] Saliency maps data integration: to allow the design of saliency-based viewport adaptive algorithms 
-
-You are encouraged to submit feature requests in the Issues section.
+The documentation will be made available in ``docs/sphinx/_build/html``.
