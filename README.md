@@ -70,11 +70,11 @@ Play a sample MPEG-DASH video:
 Play an omnidirectional content:
 Play a MPEG-DASH omnidirectional content (DASH playlist is courtesy of Bitmovin): ::
     
-    $ python3 play.py --vr True --url https://bitmovin-a.akamaihd.net/content/playhouse-vr/mpds/105560.mpd
+    $ python3 play.py --vr True --url http://bitmovin-a.akamaihd.net/content/playhouse-vr/mpds/105560.mpd
 
 Play omnidirectional content using the provided "conventional" viewport adaptive strategy (HLS playlist is courtesy of Bitmovin): 
     
-    $ python3 play.py --vr True --view_controller conventional --url https://bitmovin-a.akamaihd.net/content/playhouse-vr/m3u8s/105560.m3u8
+    $ python3 play.py --vr True --view_controller conventional --url http://bitmovin-a.akamaihd.net/content/playhouse-vr/m3u8s/105560.m3u8
 
 Play a playlist for logs, without decoding video:
 
