@@ -21,7 +21,7 @@ sampling_time = 0.1
 class HMDEmulator():
     def __init__(self, csv_file = None):
         self.readTrace(csv_file)
-        self.pitch_angle  = self.getCurrentAngles(0.0)
+        self.pitch_angle  = self.getCurrentViewAngles(0.0)
         
         
     def start(self, t_experiment_started):
@@ -44,11 +44,9 @@ class HMDEmulator():
         #except Exception, e:
             #playtime = 0.0
         
-        cur_angles = self.getCurrentAngles(time.time() - self.t_experiment_started)
+        cur_angles = self.getCurrentViewAngles(time.time() - self.t_experiment_started)
         
-        self.pitch_angle[0] = math.radians(cur_angles[0] / math.pi)
-        self.pitch_angle[1] = math.radians(cur_angles[1] / math.pi)
-        self.pitch_angle[2] = math.radians(cur_angles[2] / math.pi)
+        self.pitch_angle = [ math.radians(x / math.pi) for x in cur_angles ]
         
         reactor.callLater(sampling_time, self.updateHMDPosition)
         
@@ -89,7 +87,7 @@ class HMDEmulator():
         idx = (np.abs(self.t - timestamp)).argmin()
         return idx
 
-    def getCurrentAngles(self, time):
+    def getCurrentViewAngles(self, time):
         '''
         Gets the angles vector at time param:time
         '''
