@@ -21,7 +21,7 @@ class Options(usage.Options):
         ('view_controller', 'b', 'conventional', 'Viewport Adaptive Algorithm [conventional]'),
         ('url', 'u', 'http://devimages.apple.com/iphone/samples/bipbop/bipbopall.m3u8',
          'The playlist url. It determines the parser for the playlist'),
-        ('media_engine', 'm', 'gst', 'Player type [gst|nodec|fake]'),
+        ('media_engine', 'm', 'nodec', 'Player type [dec|nodec|fake]'),
         ('log_sub_dir', 'l', None, 'Log sub-directory'),
         ('stress_test', 's', False, 'Enable stress test. Switch level for each segment, cyclically.'),
         ('hmd_trace', 'f', 'hmd_trace.csv', 'position of the csv file which contains the user angles '),
@@ -67,7 +67,7 @@ def select_player():
         save_chunks = False
 
     # MediaEngine
-    if options['media_engine'] == 'gst':
+    if options['media_engine'] == 'dec':
         # gst_init()
         from media_engines.GstMediaEngine import GstMediaEngine
         media_engine = GstMediaEngine(decode_video=True, vr=vr, HMDEmulator=HMDEmulator)
