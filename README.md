@@ -130,3 +130,20 @@ The documentation will be made available in ``docs/sphinx/_build/html``. Many ot
 [ ] Saliency maps data integration: to allow the design of saliency-based viewport adaptive algorithms 
 
 You are encouraged to submit feature requests in the Issues section.
+
+## How to cite this work
+If you find our tool useful and you use it in your research please cite us as follows:
+
+    @inproceedings{10.1145/3394171.3414541,
+      author = {Ribezzo, Giuseppe and De Cicco, Luca and Palmisano, Vittorio and Mascolo, Saverio},
+      title = {TAPAS-360°: A Tool for the Design and Experimental Evaluation of 360° Video Streaming Systems},
+      year = {2020},
+      isbn = {9781450379885},
+      doi = {10.1145/3394171.3414541},
+      booktitle = {Proceedings of the 28th ACM International Conference on Multimedia},
+      pages = {4477–4480},
+      series = {MM '20}
+    }
+
+## Acknowledgments
+This work has been partially supported by the Italian Ministry of Economic Development (MISE) through the CLIPS project (no. F/050136/01/X32). Any opinions, findings, conclusions or recommendations expressed in this work are the authors’ and do not necessarily reflect the views of the funding agencies.
